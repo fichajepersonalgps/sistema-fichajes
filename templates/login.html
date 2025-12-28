@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Trabajadores</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center text-blue-600 mb-6">Registro de Jornada</h1>
+        <form action="/login" method="post" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">DNI o NIE</label>
+                <input type="text" name="dni" required placeholder="12345678Z" 
+                    class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <button type="submit" 
+                class="w-full bg-blue-600 text-white py-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                Entrar
+            </button>
+        </form>
+        <p class="mt-4 text-xs text-center text-gray-500">
+            El acceso requiere permisos de geolocalización.
+        </p>
+    </div>
+</body>
+</html>
