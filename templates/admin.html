@@ -3,130 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Administrador</title>
+    <title>Panel Control - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
 </head>
-<body class="bg-slate-100 font-sans">
-    
-    <nav class="bg-slate-800 text-white p-4 shadow-lg flex justify-between items-center">
-        <div class="flex items-center gap-2">
-            <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <h1 class="text-xl font-bold tracking-tight">Panel Admin - Sistema de Fichajes</h1>
-        </div>
-        <div class="flex gap-4">
-            <button onclick="window.location.reload()" class="text-sm bg-slate-700 px-4 py-2 rounded-lg hover:bg-slate-600 transition">Actualizar Datos</button>
-            <a href="/" class="text-sm bg-red-600 px-4 py-2 rounded-lg hover:bg-red-500 transition">Salir</a>
-        </div>
+<body class="bg-slate-50">
+    <nav class="bg-slate-900 text-white p-4 font-bold text-center uppercase tracking-widest">
+        Panel de Control Administrador
     </nav>
 
-    <div class="p-4 md:p-8 max-w-7xl mx-auto">
-        
-        <div class="bg-white p-4 rounded-xl shadow-sm mb-8 border border-slate-200">
-            <h2 class="text-lg font-semibold mb-4 text-slate-700 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
-                </svg>
-                Ubicación de Trabajadores en Tiempo Real
-            </h2>
-            <div id="adminMap" class="h-96 rounded-lg border bg-slate-50 shadow-inner"></div>
-        </div>
+    <div class="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div id="map" class="h-[500px] rounded-2xl shadow-lg border-4 border-white"></div>
 
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
-            <div class="p-5 border-b bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h2 class="text-lg font-semibold text-slate-700">Historial de Jornadas</h2>
-                    <p class="text-sm text-slate-500">Listado completo de entradas y salidas registradas</p>
-                </div>
-                <button class="bg-green-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 shadow-md transition-all flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd" />
-                    </svg>
-                    Descargar Reporte PDF
-                </button>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
-                        <tr>
-                            <th class="px-6 py-4">Trabajador</th>
-                            <th class="px-6 py-4">Servicio</th>
-                            <th class="px-6 py-4">Estado</th>
-                            <th class="px-6 py-4">Fecha y Hora</th>
-                            <th class="px-6 py-4 text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        {% for f in fichajes %}
-                        <tr class="hover:bg-blue-50/50 transition-colors">
-                            <td class="px-6 py-4">
-                                <div class="font-bold text-slate-800">{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}</div>
-                                <div class="text-xs text-slate-500 uppercase">{{ f.trabajadores.dni_nie }}</div>
-                            </td>
-                            <td class="px-6 py-4 text-slate-600 font-medium italic">"{{ f.servicio }}"</td>
-                            <td class="px-6 py-4">
-                                <span class="px-3 py-1 rounded-full text-[10px] font-black tracking-widest {{ 'bg-green-100 text-green-700 border border-green-200' if f.tipo == 'ENTRADA' else 'bg-red-100 text-red-700 border border-red-200' }}">
-                                    {{ f.tipo }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-slate-500 text-sm font-mono">
-                                {{ f.fecha_hora.strftime('%d/%m/%Y %H:%M') if f.fecha_hora else '--' }}
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex justify-end gap-3">
-                                    <button class="text-blue-600 hover:text-blue-800 text-sm font-bold">Editar</button>
-                                    <button class="text-red-500 hover:text-red-700 text-sm font-bold">Borrar</button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-slate-100 text-slate-600 uppercase text-xs">
+                    <tr>
+                        <th class="p-4">Trabajador</th>
+                        <th class="p-4">Tipo</th>
+                        <th class="p-4">Hora</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for f in fichajes %}
+                    <tr class="hover:bg-blue-50 transition cursor-pointer" onclick="enfocar('{{f.latitud}}', '{{f.longitud}}', '{{f.trabajadores.nombre}}')">
+                        <td class="p-4 font-bold text-slate-700">{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold {{ 'bg-emerald-100 text-emerald-700' if f.tipo == 'ENTRADA' else 'bg-rose-100 text-rose-700' }}">
+                                {{ f.tipo }}
+                            </span>
+                        </td>
+                        <td class="p-4 text-slate-500">{{ f.fecha_hora }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
     <script>
-        // Inicializar Mapa centrado en una posición neutra
-        const adminMap = L.map('adminMap').setView([40.4167, -3.7033], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(adminMap);
+        const map = L.map('map').setView([40.4167, -3.7037], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // Convertimos los datos de Jinja a un objeto JS que el editor no marque como error
-        const listaFichajes = [
-            {% for f in fichajes %}
-            {
-                lat: {{ f.latitud if f.latitud else 'null' }},
-                lon: {{ f.longitud if f.longitud else 'null' }},
-                nombre: "{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}",
-                tipo: "{{ f.tipo }}",
-                servicio: "{{ f.servicio }}"
-            },
-            {% endfor %}
-        ];
-
-        // Añadir marcadores solo si tienen coordenadas válidas
-        listaFichajes.forEach(item => {
-            if (item.lat !== null && item.lon !== null) {
-                const color = item.tipo === 'ENTRADA' ? 'green' : 'red';
-                const marker = L.marker([item.lat, item.lon]).addTo(adminMap);
-                marker.bindPopup(`
-                    <div style="font-family: sans-serif;">
-                        <strong style="color: #1e293b; font-size: 14px;">${item.nombre}</strong><br>
-                        <span style="color: ${color}; font-weight: bold;">${item.tipo}</span><br>
-                        <small>Servicio: ${item.servicio}</small>
-                    </div>
-                `);
-            }
-        });
-
-        // Ajustar zoom automáticamente si hay marcadores
-        const markersOnly = listaFichajes.filter(f => f.lat !== null).map(f => [f.lat, f.lon]);
-        if (markersOnly.length > 0) {
-            adminMap.fitBounds(markersOnly);
+        function enfocar(lat, lon, nombre) {
+            map.setView([lat, lon], 16);
+            L.marker([lat, lon]).addTo(map).bindPopup(nombre).openPopup();
         }
     </script>
 </body>

@@ -7,85 +7,51 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
 </head>
-<body class="bg-gray-100 min-h-screen pb-20">
-    <div class="p-4 max-w-md mx-auto">
-        <div class="bg-white p-4 rounded-lg shadow-md mb-4">
-            <h1 class="text-xl font-bold">Hola, {{ worker.nombre }}</h1>
-            <p class="text-gray-500 text-sm">DNI: {{ worker.dni_nie }}</p>
+<body class="bg-slate-100 min-h-screen">
+    <div class="max-w-md mx-auto p-4">
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-4">
+            <h1 class="text-xl font-bold text-slate-800">Hola, {{ worker.nombre }}</h1>
+            <p class="text-sm text-slate-500">DNI: {{ worker.dni_nie }}</p>
         </div>
 
-        <div id="map" class="h-64 rounded-lg shadow-inner mb-4 z-0"></div>
+        <div id="map" class="h-64 rounded-2xl shadow-inner mb-4 border-2 border-white"></div>
 
-        <div class="bg-white p-6 rounded-lg shadow-md">
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700">Nombre del Servicio</label>
-                <input type="text" id="servicio" placeholder="Ej: Edificio Central" 
-                    class="mt-1 block w-full border-gray-300 rounded-md p-2 border">
-            </div>
-
-            <div class="bg-yellow-50 p-3 rounded text-xs text-yellow-800 mb-4 border border-yellow-200">
-                <input type="checkbox" id="legal" class="mr-2"> 
-                Acepto compartir mi ubicación GPS para este registro de jornada laboral.
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="enviarFichaje('ENTRADA')" id="btnEntrada"
-                    class="bg-green-600 text-white py-3 rounded-lg font-bold shadow-md active:scale-95 transition-transform">
-                    ENTRADA
-                </button>
-                <button onclick="enviarFichaje('SALIDA')" id="btnSalida"
-                    class="bg-red-600 text-white py-3 rounded-lg font-bold shadow-md active:scale-95 transition-transform">
-                    SALIDA
-                </button>
-            </div>
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="fichar('ENTRADA')" class="bg-emerald-500 text-white p-6 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-lg">ENTRADA</button>
+            <button onclick="fichar('SALIDA')" class="bg-rose-500 text-white p-6 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-lg">SALIDA</button>
         </div>
     </div>
 
     <script>
         let lat, lon;
-        // Inicializar Mapa
-        const map = L.map('map').setView([40.4167, -3.7033], 15); // España por defecto
+        const map = L.map('map').setView([40.4167, -3.7037], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let marker;
 
-        // Capturar GPS en tiempo real
-        navigator.geolocation.watchPosition((pos) => {
+        navigator.geolocation.watchPosition(pos => {
             lat = pos.coords.latitude;
             lon = pos.coords.longitude;
             if (marker) map.removeLayer(marker);
             marker = L.marker([lat, lon]).addTo(map);
             map.setView([lat, lon]);
-        }, (err) => {
-            alert("Por favor, activa el GPS para poder fichar.");
-        }, { enableHighAccuracy: true });
+        });
 
-        async function enviarFichaje(tipo) {
-            const servicio = document.getElementById('servicio').value;
-            const legal = document.getElementById('legal').checked;
-
-            if (!servicio) return alert("Escribe el nombre del servicio");
-            if (!legal) return alert("Debes aceptar el aviso legal");
-            if (!lat || !lon) return alert("Esperando señal GPS...");
-
+        async function fichar(tipo) {
+            if (!lat) return alert("Esperando señal GPS...");
             const formData = new FormData();
             formData.append('worker_id', '{{ worker.id }}');
             formData.append('tipo', tipo);
             formData.append('lat', lat);
             formData.append('lon', lon);
-            formData.append('servicio', servicio);
+            formData.append('servicio', 'General');
 
-            const response = await fetch('/fichar', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-            alert(result.message);
-            if (tipo === 'SALIDA') {
-                // Aquí podrías pedir las observaciones antes de cerrar
-                window.location.href = "/";
-            }
+            const res = await fetch('/fichar', { method: 'POST', body: formData });
+            if (res.ok) alert("Fichaje de " + tipo + " registrado con éxito");
         }
     </script>
 </body>

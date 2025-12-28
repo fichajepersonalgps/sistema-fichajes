@@ -3,12 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso al Sistema</title>
+    <title>Acceso - Sistema de Fichajes</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
 </head>
 <body class="bg-slate-900 flex items-center justify-center h-screen p-4">
     <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border-t-4 border-blue-600">
-        <h2 class="text-2xl font-black text-center text-slate-800 mb-6">SISTEMA DE GESTIÓN</h2>
+        <h2 class="text-2xl font-black text-center text-slate-800 mb-6 uppercase">Sistema de Gestión</h2>
         
         {% if error %}<p class="bg-red-100 text-red-700 p-3 rounded-lg text-sm mb-4 text-center font-bold border border-red-200">{{ error }}</p>{% endif %}
 
@@ -18,7 +24,7 @@
                 <input type="text" name="dni" required class="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-blue-500 outline-none transition-all">
             </div>
 
-            <div id="campoPassword" class="hidden animate-fade-in">
+            <div id="campoPassword" class="hidden">
                 <label class="block text-xs font-bold text-red-500 uppercase mb-1">Contraseña de Administrador</label>
                 <input type="password" name="password" id="inputPass" class="w-full border-2 border-red-200 p-3 rounded-xl focus:border-red-500 outline-none bg-red-50">
             </div>
