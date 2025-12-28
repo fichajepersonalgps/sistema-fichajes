@@ -3,46 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Fichaje</title>
+    <title>Panel de Fichaje - GPS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
 </head>
 <body class="bg-slate-100 min-h-screen">
-    <div class="max-w-md mx-auto p-4">
-        <div class="bg-white rounded-2xl shadow-lg p-6 mb-4">
-            <h1 class="text-xl font-bold text-slate-800">Hola, {{ worker.nombre }}</h1>
-            <p class="text-sm text-slate-500">DNI: {{ worker.dni_nie }}</p>
+    <div class="max-w-md mx-auto p-4 pb-24">
+        
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-4 border-l-4 border-blue-600">
+            <h1 class="text-xl font-bold text-slate-800 uppercase">Hola, {{ worker.nombre }}</h1>
+            <p class="text-xs text-slate-500 font-bold">DNI: {{ worker.dni_nie }}</p>
         </div>
 
-        <div id="map" class="h-64 rounded-2xl shadow-inner mb-4 border-2 border-white"></div>
+        <div id="map" class="h-64 rounded-2xl shadow-inner mb-6 border-2 border-white overflow-hidden"></div>
 
         <div class="grid grid-cols-2 gap-4">
-            <button onclick="fichar('ENTRADA')" class="bg-emerald-500 text-white p-6 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-lg">ENTRADA</button>
-            <button onclick="fichar('SALIDA')" class="bg-rose-500 text-white p-6 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-lg">SALIDA</button>
+            <button onclick="fichar('ENTRADA')" class="bg-emerald-500 text-white p-6 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-lg hover:bg-emerald-600">
+                ENTRADA
+            </button>
+            <button onclick="fichar('SALIDA')" class="bg-rose-500 text-white p-6 rounded-2xl font-black shadow-lg active:scale-95 transition-all text-lg hover:bg-rose-600">
+                SALIDA
+            </button>
         </div>
+
+        <a href="/chat/{{ worker.id }}" class="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-2xl hover:bg-blue-700 transition-all active:scale-90 z-50 flex items-center justify-center border-4 border-white">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+            </svg>
+            <span class="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 border-2 border-white"></span>
+        </a>
     </div>
 
     <script>
         let lat, lon;
+        // Inicializar mapa en una posición por defecto (España)
         const map = L.map('map').setView([40.4167, -3.7037], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let marker;
 
+        // Función para rastrear la ubicación GPS precisa
         navigator.geolocation.watchPosition(pos => {
             lat = pos.coords.latitude;
             lon = pos.coords.longitude;
+            
             if (marker) map.removeLayer(marker);
             marker = L.marker([lat, lon]).addTo(map);
             map.setView([lat, lon]);
-        });
+        }, err => {
+            console.error("Error obteniendo GPS:", err);
+            alert("Es necesario activar el GPS para registrar el fichaje.");
+        }, { enableHighAccuracy: true });
 
+        // Función para enviar el fichaje al servidor
         async function fichar(tipo) {
-            if (!lat) return alert("Esperando señal GPS...");
+            if (!lat) return alert("Esperando señal GPS... Asegúrate de estar en un lugar abierto.");
+            
             const formData = new FormData();
             formData.append('worker_id', '{{ worker.id }}');
             formData.append('tipo', tipo);
@@ -50,8 +73,14 @@
             formData.append('lon', lon);
             formData.append('servicio', 'General');
 
-            const res = await fetch('/fichar', { method: 'POST', body: formData });
-            if (res.ok) alert("Fichaje de " + tipo + " registrado con éxito");
+            try {
+                const res = await fetch('/fichar', { method: 'POST', body: formData });
+                if (res.ok) {
+                    alert("¡Registro de " + tipo + " completado con éxito!");
+                }
+            } catch (error) {
+                alert("Error de conexión. Inténtalo de nuevo.");
+            }
         }
     </script>
 </body>
