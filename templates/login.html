@@ -3,26 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso Trabajadores</title>
+    <title>Acceso al Sistema</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 h-screen flex items-center justify-center p-4">
-    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
-        <h1 class="text-2xl font-bold text-center text-blue-600 mb-6">Registro de Jornada</h1>
-        <form action="/login" method="post" class="space-y-4">
+<body class="bg-slate-900 flex items-center justify-center h-screen p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border-t-4 border-blue-600">
+        <h2 class="text-2xl font-black text-center text-slate-800 mb-6">SISTEMA DE GESTIÓN</h2>
+        
+        {% if error %}<p class="bg-red-100 text-red-700 p-3 rounded-lg text-sm mb-4 text-center font-bold border border-red-200">{{ error }}</p>{% endif %}
+
+        <form action="/login" method="post" class="space-y-5">
             <div>
-                <label class="block text-sm font-medium text-gray-700">DNI o NIE</label>
-                <input type="text" name="dni" required placeholder="12345678Z" 
-                    class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">DNI / NIE</label>
+                <input type="text" name="dni" required class="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-blue-500 outline-none transition-all">
             </div>
-            <button type="submit" 
-                class="w-full bg-blue-600 text-white py-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
-                Entrar
+
+            <div id="campoPassword" class="hidden animate-fade-in">
+                <label class="block text-xs font-bold text-red-500 uppercase mb-1">Contraseña de Administrador</label>
+                <input type="password" name="password" id="inputPass" class="w-full border-2 border-red-200 p-3 rounded-xl focus:border-red-500 outline-none bg-red-50">
+            </div>
+
+            <button type="submit" id="btnPrincipal" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black hover:bg-blue-700 shadow-lg transition-all active:scale-95">
+                ENTRAR A FICHAR
+            </button>
+            
+            <button type="button" onclick="activarAdmin()" id="btnAdmin" class="w-full text-slate-400 py-2 rounded-lg text-xs font-bold hover:text-slate-600 transition underline decoration-dotted">
+                ACCESO PARA ADMINISTRADORES
             </button>
         </form>
-        <p class="mt-4 text-xs text-center text-gray-500">
-            El acceso requiere permisos de geolocalización.
-        </p>
     </div>
+
+    <script>
+        function activarAdmin() {
+            document.getElementById('campoPassword').classList.remove('hidden');
+            document.getElementById('inputPass').required = true;
+            document.getElementById('btnPrincipal').innerText = "ACCEDER COMO ADMIN";
+            document.getElementById('btnPrincipal').classList.replace('bg-blue-600', 'bg-red-600');
+            document.getElementById('btnAdmin').classList.add('hidden');
+        }
+    </script>
 </body>
 </html>
