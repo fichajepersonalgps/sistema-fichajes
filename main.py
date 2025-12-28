@@ -1,15 +1,15 @@
 import os
-from fastapi import FastAPI, Request, Form
+from datetime import datetime
+from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 from supabase import create_client, Client
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# Configuración de Supabase
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Conexión a Supabase
+supabase: Client = create_client(os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY"))
 
 @app.get("/")
 async def login_page(request: Request):
@@ -17,34 +17,42 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login(request: Request, dni: str = Form(...), password: str = Form(None)):
-    # Buscamos al usuario por su DNI
     res = supabase.table("trabajadores").select("*").eq("dni_nie", dni).execute()
-    
     if not res.data:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "DNI no encontrado"})
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Usuario no encontrado"})
     
     usuario = res.data[0]
-
-    # SI SE INTENTA LOGUEAR COMO ADMIN (rellenó el campo password)
-    if password:
-        # Verificamos rol y contraseña desde Supabase
-        if usuario.get("rol") == "admin" and usuario.get("password") == password:
-            res_fichajes = supabase.table("fichajes").select("*, trabajadores(nombre, apellidos, dni_nie)").order("fecha_hora", desc=True).execute()
-            return templates.TemplateResponse("admin.html", {"request": request, "fichajes": res_fichajes.data})
-        else:
-            return templates.TemplateResponse("login.html", {"request": request, "error": "Contraseña incorrecta o no tienes permisos de Admin"})
-
-    # LOGIN NORMAL DE TRABAJADOR
+    # Si es admin y pone clave, va al panel de control
+    if password and usuario.get("rol") == "admin" and usuario.get("password") == password:
+        return RedirectResponse(url="/admin", status_code=303)
+    
+    # Si es trabajador, va a su panel de fichaje
     return templates.TemplateResponse("panel_trabajador.html", {"request": request, "worker": usuario})
 
 @app.get("/admin")
-async def admin_page(request: Request):
-    # Acceso directo para el admin (puedes protegerlo más adelante)
-    res = supabase.table("fichajes").select("*, trabajadores(nombre, apellidos, dni_nie)").order("fecha_hora", desc=True).execute()
-    return templates.TemplateResponse("admin.html", {"request": request, "fichajes": res.data})
+async def admin_page(request: Request, mes: str = None):
+    # Buscador por mes para reportes
+    query = supabase.table("fichajes").select("*, trabajadores(*)").order("fecha_hora", desc=True)
+    if mes:
+        query = query.filter("fecha_hora", "gte", f"{mes}-01").filter("fecha_hora", "lt", f"{mes}-31")
+    
+    fichajes = query.execute().data
+    return templates.TemplateResponse("admin.html", {"request": request, "fichajes": fichajes, "mes_filtro": mes})
 
 @app.post("/fichar")
-async def registrar_fichaje(worker_id: str = Form(...), tipo: str = Form(...), lat: float = Form(...), lon: float = Form(...), servicio: str = Form(...)):
-    data = {"trabajador_id": worker_id, "tipo": tipo, "latitud": lat, "longitud": lon, "servicio": servicio}
+async def registrar_fichaje(worker_id: str = Form(...), tipo: str = Form(...), lat: float = Form(...), lon: float = Form(...)):
+    data = {"trabajador_id": worker_id, "tipo": tipo, "latitud": lat, "longitud": lon, "servicio": "General"}
     supabase.table("fichajes").insert(data).execute()
+    return {"status": "ok"}
+
+# RUTA DEL CHAT (Adaptada a tus columnas: emisor_id, receptor_id)
+@app.get("/chat/{worker_id}")
+async def ver_chat(request: Request, worker_id: str):
+    mensajes = supabase.table("chat_mensajes").select("*").or_(f"emisor_id.eq.{worker_id},receptor_id.eq.{worker_id}").order("created_at").execute()
+    worker = supabase.table("trabajadores").select("*").eq("id", worker_id).single().execute()
+    return templates.TemplateResponse("chat.html", {"request": request, "mensajes": mensajes.data, "worker": worker.data})
+
+@app.post("/enviar_mensaje")
+async def enviar(emisor_id: str = Form(...), receptor_id: str = Form(...), contenido: str = Form(...)):
+    supabase.table("chat_mensajes").insert({"emisor_id": emisor_id, "receptor_id": receptor_id, "contenido": contenido}).execute()
     return {"status": "ok"}
