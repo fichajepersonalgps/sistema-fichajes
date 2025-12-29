@@ -7,11 +7,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2563eb">
     <style>
         button:disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen pb-24">
+
+    <audio id="sndNotif" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
 
     <div id="modalLegal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
         <div class="bg-white rounded-3xl p-8 shadow-2xl max-w-sm text-center">
@@ -19,7 +23,7 @@
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
             </div>
             <h2 class="text-xl font-bold text-slate-800 mb-2">Aviso de Ubicación</h2>
-            <p class="text-sm text-slate-600 mb-6">Para registrar su jornada, la app capturará su posición GPS al fichar. ¿Desea continuar?</p>
+            <p class="text-sm text-slate-600 mb-6">La app capturará su posición GPS al fichar. ¿Desea continuar?</p>
             <button onclick="aceptarGPS()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">ACEPTAR</button>
         </div>
     </div>
@@ -31,7 +35,7 @@
                 <p id="badgeEstado" class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full inline-block mt-1"></p>
             </div>
             <div class="text-right">
-                <p class="text-[10px] text-slate-400 font-mono">{{ worker.dni_nie }}</p>
+                <a href="/" class="text-[10px] bg-slate-50 border px-3 py-1 rounded-full text-slate-400 font-bold uppercase">Cerrar Sesión</a>
             </div>
         </div>
 
@@ -42,9 +46,9 @@
             <button id="btnSalida" onclick="fichar('SALIDA')" disabled class="bg-rose-500 text-white p-6 rounded-3xl font-black shadow-lg active:scale-95 transition-all">SALIDA</button>
         </div>
 
-        <div class="bg-white rounded-3xl p-6 shadow-sm">
-            <h3 class="text-slate-400 text-[10px] font-black uppercase mb-2">Resumen</h3>
-            <p class="text-[9px] text-slate-400 mt-2 italic">* Los reportes detallados son gestionados por el Administrador.</p>
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+            <h3 class="text-slate-400 text-[10px] font-black uppercase mb-1">Información</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">Tu ubicación solo se registra en el momento exacto del fichaje.</p>
         </div>
     </div>
 
@@ -55,6 +59,7 @@
 
     <script>
         let lat, lon;
+        let conteoMensajes = 0;
         const map = L.map('map').setView([40.41, -3.70], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let marker;
@@ -94,8 +99,10 @@
         async function fichar(tipo) {
             if (!lat) return alert("Esperando señal GPS...");
             const fd = new FormData();
-            fd.append('worker_id', '{{ worker.id }}'); fd.append('tipo', tipo);
-            fd.append('lat', lat); fd.append('lon', lon);
+            fd.append('worker_id', '{{ worker.id }}'); 
+            fd.append('tipo', tipo);
+            fd.append('lat', lat); 
+            fd.append('lon', lon);
             const res = await fetch('/fichar', { method: 'POST', body: fd });
             if (res.ok) {
                 localStorage.setItem('en_servicio', tipo === 'ENTRADA');
@@ -108,11 +115,33 @@
                 const res = await fetch('/mensajes_nuevos/{{ worker.id }}');
                 const data = await res.json();
                 const globo = document.getElementById('notificacionChat');
-                if (data.mensajes.length > 0) globo.classList.remove('hidden');
-                else globo.classList.add('hidden');
+                
+                if (data.mensajes.length > 0) {
+                    globo.classList.remove('hidden');
+                    // Si hay más mensajes que antes, sonar y vibrar
+                    if (data.mensajes.length > conteoMensajes) {
+                        document.getElementById('sndNotif').play().catch(e => {});
+                        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                    }
+                } else {
+                    globo.classList.add('hidden');
+                }
+                conteoMensajes = data.mensajes.length;
             } catch (e) {}
         }
         setInterval(chequearNuevosMensajes, 5000);
+
+        // Registro de Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/service-worker.js')
+            .then(() => console.log("PWA: Service Worker Activo"))
+            .catch(err => console.log("PWA: Error", err));
+        }
+
+        // Activar audio al primer toque (requisito de navegadores)
+        document.body.addEventListener('click', () => {
+            document.getElementById('sndNotif').muted = false;
+        }, { once: true });
     </script>
 </body>
 </html>
