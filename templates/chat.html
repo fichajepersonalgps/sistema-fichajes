@@ -16,7 +16,7 @@
         </a>
         <div>
             <h1 class="font-bold text-lg leading-none">{{ receptor.nombre }}</h1>
-            <span class="text-[10px] opacity-80 uppercase font-bold">Chat Privado</span>
+            <span class="text-[10px] opacity-80 uppercase font-bold">Chat en tiempo real</span>
         </div>
     </header>
 
@@ -47,16 +47,37 @@
     </form>
 
     <script>
-        // Hacer scroll al último mensaje al cargar
         const contenedor = document.getElementById('contenedorMensajes');
         contenedor.scrollTop = contenedor.scrollHeight;
 
+        // Función para actualizar mensajes sin recargar toda la página
+        async function refrescarMensajes() {
+            try {
+                const response = await fetch(window.location.href);
+                const text = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                const nuevoContenido = doc.getElementById('contenedorMensajes').innerHTML;
+                
+                // Solo actualiza si hay algo nuevo para no parpadear
+                if (contenedor.innerHTML !== nuevoContenido) {
+                    contenedor.innerHTML = nuevoContenido;
+                    contenedor.scrollTop = contenedor.scrollHeight;
+                }
+            } catch (error) {
+                console.error("Error al refrescar:", error);
+            }
+        }
+
+        // Chequear mensajes cada 3 segundos
+        const intervalo = setInterval(refrescarMensajes, 3000);
+
+        // Envío del formulario
         const form = document.getElementById('formChat');
         form.onsubmit = async (e) => {
             e.preventDefault();
             const input = document.getElementById('inputTexto');
             const texto = input.value.trim();
-            
             if (!texto) return;
 
             const fd = new FormData();
@@ -64,23 +85,18 @@
             fd.append('receptor_id', '{{ receptor.id }}');
             fd.append('contenido', texto);
 
-            try {
-                const response = await fetch('/enviar_mensaje', {
-                    method: 'POST',
-                    body: fd
-                });
+            input.value = ''; // Limpiar campo inmediatamente
 
-                if (response.ok) {
-                    input.value = '';
-                    location.reload(); // Recarga para mostrar el nuevo mensaje
-                } else {
-                    alert("Error al enviar el mensaje");
-                }
+            try {
+                await fetch('/enviar_mensaje', { method: 'POST', body: fd });
+                refrescarMensajes(); // Carga el mensaje enviado sin esperar al intervalo
             } catch (error) {
-                console.error("Error:", error);
-                alert("Fallo de conexión");
+                console.error("Error al enviar:", error);
             }
         };
+
+        // Detener intervalo al salir de la página
+        window.onbeforeunload = () => clearInterval(intervalo);
     </script>
 </body>
 </html>
