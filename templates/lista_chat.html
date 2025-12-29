@@ -3,46 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mensajería Interna</title>
+    <title>Contactos</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen">
-    <div class="max-w-md mx-auto p-4">
-        
-        <div class="flex items-center justify-between mb-6">
-            <h1 class="text-2xl font-black text-slate-800 tracking-tighter">MENSAJERÍA</h1>
-            <a href="javascript:history.back()" class="bg-white px-4 py-2 rounded-xl shadow-sm text-xs font-bold text-slate-500 hover:bg-slate-50">
-                VOLVER
-            </a>
-        </div>
 
-        <div class="space-y-3">
+    <header class="bg-white p-4 shadow-sm flex items-center justify-between sticky top-0 z-10">
+        <div class="flex items-center gap-3">
+            <a href="/" class="text-slate-400 hover:text-slate-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </a>
+            <h1 class="font-black text-slate-800 tracking-tight">MENSAJERÍA</h1>
+        </div>
+    </header>
+
+    <div class="p-4 space-y-3">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Contactos</p>
+        
+        <div class="space-y-2">
             {% for t in trabajadores %}
-            <a href="/chat/{{ t.id }}?emisor_id={{ user_id }}" class="block bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-all border-l-4 {{ 'border-emerald-500' if estados.get(t.id) == 'ENTRADA' else 'border-slate-300' }}">
-                <div class="flex justify-between items-center">
+            <a href="/chat/{{ t.id }}?emisor_id={{ user_id }}" 
+               class="bg-white p-4 rounded-2xl shadow-sm flex items-center justify-between active:scale-[0.98] transition-all border border-transparent hover:border-blue-100">
+                
+                <div class="flex items-center gap-4">
+                    <div class="relative">
+                        <div class="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center font-bold text-slate-500 uppercase">
+                            {{ t.nombre[0] }}{{ t.apellidos[0] if t.apellidos else '' }}
+                        </div>
+                        <div class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white {{ 'bg-emerald-500' if estados.get(t.id) == 'ENTRADA' else 'bg-slate-300' }}"></div>
+                    </div>
+
                     <div>
-                        <p class="font-bold text-slate-800">{{ t.nombre }} {{ t.apellidos }}</p>
-                        <p class="text-[10px] text-slate-400 font-mono uppercase">{{ t.dni_nie }}</p>
+                        <h2 class="font-bold text-slate-800 text-sm capitalize">{{ t.nombre }} {{ t.apellidos or '' }}</h2>
+                        <p class="text-[10px] {{ 'text-emerald-500 font-bold' if estados.get(t.id) == 'ENTRADA' else 'text-slate-400' }}">
+                            {{ 'En Servicio' if estados.get(t.id) == 'ENTRADA' else 'Desconectado' }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <div id="aviso-{{ t.id }}" class="hidden bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-full animate-bounce">
+                        NUEVO
                     </div>
                     
-                    <div class="flex flex-col items-end gap-1">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[9px] font-black {{ 'text-emerald-600' if estados.get(t.id) == 'ENTRADA' else 'text-slate-400' }}">
-                                {{ 'EN SERVICIO' if estados.get(t.id) == 'ENTRADA' else 'DESCONECTADO' }}
-                            </span>
-                            <div class="w-3 h-3 rounded-full {{ 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' if estados.get(t.id) == 'ENTRADA' else 'bg-slate-300' }}"></div>
-                        </div>
-                    </div>
+                    <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </div>
             </a>
             {% endfor %}
         </div>
-
-        {% if not trabajadores %}
-        <div class="text-center py-20">
-            <p class="text-slate-400 text-sm">No hay otros trabajadores registrados.</p>
-        </div>
-        {% endif %}
     </div>
+
+    <script>
+        // Función para marcar quién ha enviado mensajes no leídos
+        async function marcarMensajesPendientes() {
+            try {
+                const res = await fetch('/mensajes_nuevos/{{ user_id }}');
+                const data = await res.json();
+                
+                // Primero ocultamos todos los avisos por si se leyeron
+                document.querySelectorAll('[id^="aviso-"]').forEach(el => el.classList.add('hidden'));
+
+                // Mostramos el aviso solo para los que enviaron mensajes no leídos
+                data.mensajes.forEach(m => {
+                    const el = document.getElementById('aviso-' + m.emisor_id);
+                    if (el) el.classList.remove('hidden');
+                });
+            } catch (e) {
+                console.error("Error al marcar pendientes");
+            }
+        }
+
+        // Chequear cada 4 segundos
+        setInterval(marcarMensajesPendientes, 4000);
+        window.onload = marcarMensajesPendientes;
+    </script>
 </body>
 </html>
