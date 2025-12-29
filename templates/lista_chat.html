@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mensajería Interna</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div class="max-w-md mx-auto p-4">
+        
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl font-black text-slate-800 tracking-tighter">MENSAJERÍA</h1>
+            <a href="javascript:history.back()" class="bg-white px-4 py-2 rounded-xl shadow-sm text-xs font-bold text-slate-500 hover:bg-slate-50">
+                VOLVER
+            </a>
+        </div>
+
+        <div class="space-y-3">
+            {% for t in trabajadores %}
+            <a href="/chat/{{ t.id }}?emisor_id={{ user_id }}" class="block bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-all border-l-4 {{ 'border-emerald-500' if estados.get(t.id) == 'ENTRADA' else 'border-slate-300' }}">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-slate-800">{{ t.nombre }} {{ t.apellidos }}</p>
+                        <p class="text-[10px] text-slate-400 font-mono uppercase">{{ t.dni_nie }}</p>
+                    </div>
+                    
+                    <div class="flex flex-col items-end gap-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] font-black {{ 'text-emerald-600' if estados.get(t.id) == 'ENTRADA' else 'text-slate-400' }}">
+                                {{ 'EN SERVICIO' if estados.get(t.id) == 'ENTRADA' else 'DESCONECTADO' }}
+                            </span>
+                            <div class="w-3 h-3 rounded-full {{ 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' if estados.get(t.id) == 'ENTRADA' else 'bg-slate-300' }}"></div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        {% if not trabajadores %}
+        <div class="text-center py-20">
+            <p class="text-slate-400 text-sm">No hay otros trabajadores registrados.</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,44 +1,70 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8"><title>Admin - Reportes</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-50 p-6">
-    <div class="max-w-6xl mx-auto">
-        <header class="flex justify-between items-center mb-10">
-            <h1 class="text-2xl font-black italic">SISTEMA GPS PRO</h1>
-            <form class="flex gap-2">
-                <input type="month" name="mes" value="{{ mes_filtro }}" class="border p-2 rounded-xl text-sm">
-                <button class="bg-slate-900 text-white px-6 rounded-xl text-sm font-bold">Filtrar Historial</button>
-            </form>
-        </header>
+<body class="bg-slate-50 min-h-screen pb-20">
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            <div class="bg-white p-8 rounded-3xl shadow-sm border-b-4 border-blue-600">
-                <p class="text-xs font-bold text-slate-400 uppercase">Resumen Horas Totales</p>
-                <h2 class="text-4xl font-black">1.240,50 h</h2>
+    <nav class="bg-slate-900 text-white p-4 shadow-xl mb-6">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-black tracking-tighter">SISTEMA <span class="text-blue-400">ADMIN</span></h1>
+            <a href="/" class="text-xs bg-slate-800 px-4 py-2 rounded-lg hover:bg-rose-600 transition-colors">CERRAR SESIÓN</a>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto px-4">
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-blue-500">
+                <p class="text-slate-400 text-[10px] font-bold uppercase">Total Trabajadores</p>
+                <p class="text-3xl font-black text-slate-800">{{ trabajadores|length }}</p>
             </div>
-            <button onclick="window.print()" class="bg-blue-600 text-white rounded-3xl font-bold shadow-lg hover:bg-blue-700">DESCARGAR REPORTE DETALLADO (PDF)</button>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-emerald-500">
+                <p class="text-slate-400 text-[10px] font-bold uppercase">En Servicio Hoy</p>
+                <p class="text-3xl font-black text-slate-800">--</p>
+            </div>
         </div>
 
-        <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
-            <table class="w-full text-left">
-                <thead class="bg-slate-100 text-[10px] font-black uppercase tracking-widest">
-                    <tr><th class="p-5">Trabajador</th><th class="p-5">Servicio</th><th class="p-5">Evento</th><th class="p-5">Fecha y Hora</th><th class="p-5 text-center">Chat</th></tr>
-                </thead>
-                <tbody class="divide-y text-sm">
-                    {% for f in fichajes %}
-                    <tr>
-                        <td class="p-5 font-bold">{{ f.trabajadores.nombre }}</td>
-                        <td class="p-5 text-slate-500">{{ f.servicio }}</td>
-                        <td class="p-5"><span class="px-2 py-1 rounded text-[10px] font-bold {{ 'bg-green-100 text-green-700' if f.tipo == 'ENTRADA' else 'bg-red-100 text-red-700' }}">{{ f.tipo }}</span></td>
-                        <td class="p-5 text-slate-400 font-mono">{{ f.fecha_hora }}</td>
-                        <td class="p-5 text-center"><a href="/chat/{{ f.trabajador_id }}" class="text-blue-600 font-bold">Abrir Chat</a></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="bg-white rounded-3xl shadow-sm overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="font-bold text-slate-800">GESTIÓN DE PERSONAL</h2>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 text-[10px] uppercase text-slate-400 font-bold">
+                        <tr>
+                            <th class="px-6 py-4">Trabajador</th>
+                            <th class="px-6 py-4">Identificación</th>
+                            <th class="px-6 py-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for t in trabajadores %}
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4">
+                                <p class="font-bold text-slate-700">{{ t.nombre }} {{ t.apellidos }}</p>
+                            </td>
+                            <td class="px-6 py-4 font-mono text-xs text-slate-500">
+                                {{ t.dni_nie }}
+                            </td>
+                            <td class="px-6 py-4 flex justify-center gap-2">
+                                <a href="/admin/reporte/{{ t.id }}" class="bg-slate-100 text-slate-600 px-3 py-2 rounded-xl text-xs font-bold hover:bg-slate-200">
+                                    HORAS
+                                </a>
+                                <a href="/chat_lista/{{ t.id }}" class="bg-blue-100 text-blue-600 px-3 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path></svg>
+                                    CHAT
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </body>

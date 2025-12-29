@@ -3,58 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat de Soporte</title>
+    <title>Chat Privado</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="/manifest.json">
 </head>
 <body class="bg-slate-100 h-screen flex flex-col">
-    <header class="bg-blue-600 p-4 text-white font-bold shadow-md flex justify-between items-center">
-        <span>Chat: {{ worker_nombre }}</span>
-        <a href="/" class="text-xs bg-blue-700 px-3 py-1 rounded-lg">Volver</a>
+
+    <header class="bg-blue-600 p-4 text-white shadow-lg flex items-center gap-4">
+        <a href="{{ url_volver }}" class="hover:bg-blue-700 p-2 rounded-full transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="font-bold text-lg leading-none">{{ receptor.nombre }}</h1>
+            <span class="text-[10px] opacity-80 uppercase font-bold">Chat Privado</span>
+        </div>
     </header>
 
-    <div id="caja-mensajes" class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col">
+    <div id="contenedorMensajes" class="flex-1 overflow-y-auto p-4 space-y-4">
         {% for m in mensajes %}
-        <div class="flex {{ 'justify-end' if m.es_admin else 'justify-start' }}">
-            <div class="{{ 'bg-blue-500 text-white rounded-br-none' if m.es_admin else 'bg-white text-slate-800 rounded-bl-none' }} p-3 rounded-2xl shadow-sm max-w-[80%]">
-                <p class="text-[10px] font-bold opacity-70 mb-1">
-                    {{ "Tú (Admin)" if m.es_admin else worker_nombre }}
-                </p>
+        <div class="flex {{ 'justify-end' if m.emisor_id == emisor_id else 'justify-start' }}">
+            <div class="max-w-[80%] p-3 rounded-2xl shadow-sm 
+                {{ 'bg-blue-500 text-white rounded-tr-none' if m.emisor_id == emisor_id else 'bg-white text-slate-800 rounded-tl-none' }}">
                 <p class="text-sm">{{ m.contenido }}</p>
+                <p class="text-[9px] mt-1 opacity-70 text-right">
+                    {{ m.created_at.split('T')[1][:5] if 'T' in m.created_at else '' }}
+                </p>
             </div>
         </div>
         {% endfor %}
     </div>
 
-    <form id="form-chat" class="p-4 bg-white border-t flex gap-2">
-        <input type="text" id="input-msg" placeholder="Escribe un mensaje..." class="flex-1 border-2 border-slate-100 rounded-full px-4 outline-none focus:border-blue-500">
-        <button type="submit" class="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"></path>
+    <form id="formChat" class="bg-white p-4 flex gap-2 border-t border-slate-200">
+        <input type="text" id="inputTexto" required autocomplete="off"
+               class="flex-1 bg-slate-100 border-none rounded-full px-4 text-sm focus:ring-2 focus:ring-blue-500" 
+               placeholder="Escribe un mensaje...">
+        
+        <button type="submit" class="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 active:scale-95 transition-all">
+            <svg class="w-5 h-5 rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path>
             </svg>
         </button>
     </form>
 
     <script>
-        const form = document.getElementById('form-chat');
+        // Hacer scroll al último mensaje al cargar
+        const contenedor = document.getElementById('contenedorMensajes');
+        contenedor.scrollTop = contenedor.scrollHeight;
+
+        const form = document.getElementById('formChat');
         form.onsubmit = async (e) => {
             e.preventDefault();
-            const msg = document.getElementById('input-msg').value;
-            if(!msg.trim()) return;
-
-            const formData = new FormData();
-            formData.append('worker_id', '{{ worker_id }}');
-            formData.append('contenido', msg);
-            formData.append('remitente', '{{ "Admin" if es_admin else worker_nombre }}');
-            // Nota: Aquí el código de main.py debe decidir si envía true o false en es_admin
+            const input = document.getElementById('inputTexto');
+            const texto = input.value.trim();
             
-            await fetch('/enviar_mensaje', { method: 'POST', body: formData });
-            location.reload(); 
+            if (!texto) return;
+
+            const fd = new FormData();
+            fd.append('emisor_id', '{{ emisor_id }}');
+            fd.append('receptor_id', '{{ receptor.id }}');
+            fd.append('contenido', texto);
+
+            try {
+                const response = await fetch('/enviar_mensaje', {
+                    method: 'POST',
+                    body: fd
+                });
+
+                if (response.ok) {
+                    input.value = '';
+                    location.reload(); // Recarga para mostrar el nuevo mensaje
+                } else {
+                    alert("Error al enviar el mensaje");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Fallo de conexión");
+            }
         };
-        
-        // Auto-scroll al final
-        const caja = document.getElementById('caja-mensajes');
-        caja.scrollTop = caja.scrollHeight;
     </script>
 </body>
 </html>
