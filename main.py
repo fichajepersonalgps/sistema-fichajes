@@ -9,20 +9,26 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 # Conexión a Supabase
-supabase: Client = create_client(os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY"))
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- UTILIDADES ---
 def obtener_estados_usuarios():
-    # Obtiene el último fichaje de cada uno para ver quién está 'ENTRADA'
+    # Obtiene el último fichaje para determinar quién está ENTRADA/SALIDA
     fichajes = supabase.table("fichajes").select("trabajador_id, tipo").order("fecha_hora", desc=True).execute().data
     estados = {}
     for f in fichajes:
         if f['trabajador_id'] not in estados:
             estados[f['trabajador_id']] = f['tipo']
+    
+    # [MEJORA] El Admin siempre aparece como conectado (punto verde)
+    admins = supabase.table("trabajadores").select("id").eq("rol", "admin").execute().data
+    for a in admins:
+        estados[a['id']] = 'ENTRADA'
     return estados
 
 # --- RUTAS DE ACCESO ---
-
 @app.get("/")
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -30,28 +36,33 @@ async def login_page(request: Request):
 @app.post("/login")
 async def login(request: Request, dni: str = Form(...), password: str = Form(None)):
     res = supabase.table("trabajadores").select("*").eq("dni_nie", dni).execute()
-    if not res.data: return templates.TemplateResponse("login.html", {"request": request, "error": "DNI no encontrado"})
+    if not res.data:
+        return templates.TemplateResponse("login.html", {"request": request, "error": "DNI no encontrado"})
     
     usuario = res.data[0]
-    if password: 
+    if password: # Intento de login como Admin
         if usuario.get("rol") == "admin" and usuario.get("password") == password:
             return RedirectResponse(url=f"/admin?admin_id={usuario['id']}", status_code=303)
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Clave admin incorrecta"})
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Clave incorrecta"})
 
     return templates.TemplateResponse("panel_trabajador.html", {"request": request, "worker": usuario})
 
-# --- PANEL ADMIN CON FILTROS ---
-
+# --- PANEL ADMINISTRADOR ---
 @app.get("/admin")
 async def admin_page(request: Request, admin_id: str = None, trabajador_id: str = None, mes: str = None):
     trabajadores = supabase.table("trabajadores").select("*").execute().data
     estados = obtener_estados_usuarios()
     
+    # Consulta de fichajes con join a trabajadores
     query = supabase.table("fichajes").select("*, trabajadores(*)").order("fecha_hora", desc=True)
+    
     if trabajador_id:
         query = query.eq("trabajador_id", trabajador_id)
     if mes:
-        query = query.filter("fecha_hora", "gte", f"{mes}-01").filter("fecha_hora", "lt", f"{mes}-31")
+        # Filtro de mes para reportes
+        primer_dia = f"{mes}-01"
+        ultimo_dia = f"{mes}-31"
+        query = query.filter("fecha_hora", "gte", primer_dia).filter("fecha_hora", "lt", ultimo_dia)
     
     fichajes = query.execute().data
 
@@ -65,16 +76,20 @@ async def admin_page(request: Request, admin_id: str = None, trabajador_id: str 
         "mes_actual": mes or datetime.now().strftime("%Y-%m")
     })
 
-# --- FICHAJE ---
-
+# --- GESTIÓN DE FICHAJES (GPS) ---
 @app.post("/fichar")
 async def registrar_fichaje(worker_id: str = Form(...), tipo: str = Form(...), lat: float = Form(...), lon: float = Form(...)):
-    data = {"trabajador_id": worker_id, "tipo": tipo, "latitud": lat, "longitud": lon, "servicio": "General"}
+    data = {
+        "trabajador_id": worker_id, 
+        "tipo": tipo, 
+        "latitud": lat, 
+        "longitud": lon, 
+        "servicio": "General"
+    }
     supabase.table("fichajes").insert(data).execute()
     return {"status": "ok"}
 
-# --- CHAT EN TIEMPO REAL Y NOTIFICACIONES ---
-
+# --- SISTEMA DE CHAT ---
 @app.get("/chat_lista/{user_id}")
 async def lista_chat(request: Request, user_id: str):
     trabajadores = supabase.table("trabajadores").select("*").neq("id", user_id).execute().data
@@ -85,6 +100,9 @@ async def lista_chat(request: Request, user_id: str):
 
 @app.get("/chat/{receptor_id}")
 async def ver_chat(request: Request, receptor_id: str, emisor_id: str):
+    # [NUEVO] Marcar como leídos los mensajes que recibo de esta persona
+    supabase.table("chat_mensajes").update({"leido": True}).eq("emisor_id", receptor_id).eq("receptor_id", emisor_id).execute()
+
     mensajes = supabase.table("chat_mensajes").select("*").or_(
         f"and(emisor_id.eq.{emisor_id},receptor_id.eq.{receptor_id}),"
         f"and(emisor_id.eq.{receptor_id},receptor_id.eq.{emisor_id})"
@@ -101,16 +119,17 @@ async def ver_chat(request: Request, receptor_id: str, emisor_id: str):
 
 @app.post("/enviar_mensaje")
 async def enviar(emisor_id: str = Form(...), receptor_id: str = Form(...), contenido: str = Form(...)):
+    # Al enviar, leido es False por defecto
     supabase.table("chat_mensajes").insert({
         "emisor_id": emisor_id, 
         "receptor_id": receptor_id, 
-        "contenido": contenido
+        "contenido": contenido,
+        "leido": False
     }).execute()
     return {"status": "ok"}
 
-# RUTA PARA EL GLOBO DE NOTIFICACIÓN
 @app.get("/mensajes_nuevos/{user_id}")
 async def chequear_mensajes(user_id: str):
-    # Devuelve los últimos 5 mensajes recibidos por este usuario para avisarle si hay algo nuevo
-    res = supabase.table("chat_mensajes").select("*").eq("receptor_id", user_id).order("created_at", desc=True).limit(5).execute()
+    # Solo notificar mensajes NO leídos
+    res = supabase.table("chat_mensajes").select("*").eq("receptor_id", user_id).eq("leido", False).execute()
     return {"mensajes": res.data}
