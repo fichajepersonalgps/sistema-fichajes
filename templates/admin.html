@@ -2,99 +2,94 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Admin - Control Total</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Supervisión</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>@media print { .no-print { display: none; } }</style>
 </head>
-<body class="bg-slate-100 min-h-screen pb-10">
-    <nav class="bg-slate-900 text-white p-4 flex justify-between shadow-lg">
-        <h1 class="font-black tracking-tighter text-xl">SISTEMA <span class="text-blue-400">ADMIN</span></h1>
-        <a href="/" class="text-xs bg-slate-800 px-4 py-2 rounded-xl hover:bg-rose-600">CERRAR SESIÓN</a>
+<body class="bg-slate-100 min-h-screen">
+    <nav class="bg-slate-900 text-white p-4 sticky top-0 z-[1001] no-print">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="font-black text-xl italic tracking-tighter">CONTROL<span class="text-blue-400">GEO</span></h1>
+            <a href="/" class="text-[10px] font-bold bg-rose-600 px-4 py-2 rounded-xl">SALIR</a>
+        </div>
     </nav>
 
-    <div class="max-w-6xl mx-auto p-6">
-        <div class="bg-white p-6 rounded-3xl shadow-sm mb-6 flex flex-wrap gap-4 items-end border border-slate-200">
-            <form action="/admin" method="get" class="flex flex-wrap gap-4 items-end">
-                <input type="hidden" name="admin_id" value="{{ admin_id }}">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-1">TRABAJADOR</label>
-                    <select name="trabajador_id" class="border rounded-xl p-2 text-sm bg-slate-50">
-                        <option value="">Todos los empleados</option>
-                        {% for t in trabajadores %}
-                        <option value="{{ t.id }}" {{ 'selected' if filtro_trabajador == t.id }}>{{ t.nombre }} {{ t.apellidos }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-1">MES</label>
-                    <input type="month" name="mes" value="{{ mes_actual }}" class="border rounded-xl p-2 text-sm bg-slate-50">
-                </div>
-                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700">FILTRAR</button>
-            </form>
-            <button onclick="window.print()" class="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-700">DESCARGAR REPORTE</button>
+    <main class="max-w-6xl mx-auto p-4">
+        <div class="bg-white rounded-[2.5rem] shadow-sm p-2 mb-6 border-4 border-white no-print">
+            <div id="mapAdmin" class="h-80 md:h-[500px] rounded-[2rem] overflow-hidden"></div>
         </div>
 
-        <div id="map" class="h-80 bg-white rounded-3xl mb-6 shadow-sm border-4 border-white z-0"></div>
+        <section class="bg-white rounded-3xl p-6 mb-6 no-print shadow-sm border border-slate-200">
+            <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <input type="hidden" name="admin_id" value="{{ admin_id }}">
+                <select name="trabajador_id" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
+                    <option value="">Todos los empleados</option>
+                    {% for t in trabajadores %}
+                    <option value="{{ t.id }}" {% if filtro_trabajador == t.id %}selected{% endif %}>{{ t.nombre }} {{ t.apellidos }}</option>
+                    {% endfor %}
+                </select>
+                <input type="month" name="mes" value="{{ mes_actual }}" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
+                <div class="md:col-span-2 flex gap-2">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white font-black rounded-xl py-3 uppercase text-xs">Filtrar</button>
+                    <button type="button" onclick="window.print()" class="bg-slate-100 p-3 rounded-xl">🖨️ PDF</button>
+                </div>
+            </form>
+        </section>
 
         <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-200">
-            <table class="w-full text-left">
-                <thead class="bg-slate-50 text-[10px] font-bold uppercase text-slate-500">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 border-b">
                     <tr>
-                        <th class="p-4">Trabajador</th>
-                        <th class="p-4">Estado</th>
-                        <th class="p-4">Último Evento</th>
-                        <th class="p-4">Fecha / Hora</th>
-                        <th class="p-4 text-center">Mensajería</th>
+                        <th class="p-4 font-black text-slate-400 uppercase">Trabajador</th>
+                        <th class="p-4 font-black text-slate-400 uppercase">Estado</th>
+                        <th class="p-4 font-black text-slate-400 uppercase">Servicio</th>
+                        <th class="p-4 font-black text-slate-400 uppercase">Fecha/Hora</th>
                     </tr>
                 </thead>
-                <tbody class="text-sm divide-y divide-slate-100">
+                <tbody class="divide-y">
                     {% for f in fichajes %}
                     <tr class="hover:bg-slate-50">
-                        <td class="p-4 font-bold text-slate-700">{{ f.trabajadores.nombre }}</td>
-                        <td class="p-4">
-                            <span class="flex items-center gap-2">
-                                <div class="w-2.5 h-2.5 rounded-full {{ 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' if estados.get(f.trabajador_id) == 'ENTRADA' else 'bg-slate-300' }}"></div>
-                                <span class="text-xs">{{ 'En Servicio' if estados.get(f.trabajador_id) == 'ENTRADA' else 'Fuera' }}</span>
-                            </span>
-                        </td>
-                        <td class="p-4"><span class="px-2 py-1 rounded-lg text-[10px] font-black {{ 'bg-emerald-100 text-emerald-700' if f.tipo == 'ENTRADA' else 'bg-rose-100 text-rose-700' }}">{{ f.tipo }}</span></td>
-                        <td class="p-4 text-slate-500 font-mono text-xs">{{ f.fecha_hora }}</td>
-                        <td class="p-4 text-center">
-                            <a href="/chat/{{ f.trabajador_id }}?emisor_id={{ admin_id }}" class="relative inline-flex items-center bg-blue-50 text-blue-600 px-4 py-2 rounded-xl font-bold text-xs hover:bg-blue-600 hover:text-white transition-all">
-                                CHAT
-                                <div id="aviso-{{ f.trabajador_id }}" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white animate-pulse"></div>
-                            </a>
-                        </td>
+                        <td class="p-4 font-bold capitalize">{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}</td>
+                        <td class="p-4"><span class="px-2 py-0.5 rounded-md font-black {{ 'bg-emerald-100 text-emerald-600' if f.tipo == 'ENTRADA' else 'bg-rose-100 text-rose-600' }}">{{ f.tipo }}</span></td>
+                        <td class="p-4 font-bold text-blue-600 italic">{{ f.servicio }}</td>
+                        <td class="p-4 text-slate-400 font-medium">{{ f.fecha_hora }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-    </div>
+    </main>
 
     <script>
-        const map = L.map('map').setView([40.41, -3.70], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        
-        {% for f in fichajes %}
-            {% if f.latitud and f.longitud %}
-                L.marker([{{ f.latitud }}, {{ f.longitud }}]).addTo(map)
-                 .bindPopup("<b>{{ f.trabajadores.nombre }}</b><br>{{ f.tipo }}<br>{{ f.fecha_hora }}");
-            {% endif %}
-        {% endfor %}
+        const mapAdmin = L.map('mapAdmin', { zoomControl: false }).setView([40.41, -3.70], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapAdmin);
+        const bounds = [];
 
-        async function alertaMensajesAdmin() {
-            try {
-                const res = await fetch('/mensajes_nuevos/{{ admin_id }}');
-                const data = await res.json();
-                data.mensajes.forEach(m => {
-                    const punto = document.getElementById('aviso-' + m.emisor_id);
-                    if (punto) punto.classList.remove('hidden');
-                });
-            } catch (e) {}
-        }
-        setInterval(alertaMensajesAdmin, 5000);
+        {% for f in fichajes %}
+            (function() {
+                const color = "{{ f.tipo }}" === "ENTRADA" ? "#10b981" : "#f43f5e";
+                const marker = L.circleMarker([{{ f.latitud }}, {{ f.longitud }}], {
+                    radius: 10, fillColor: color, color: "white", weight: 3, fillOpacity: 0.9
+                }).addTo(mapAdmin);
+
+                const popupContent = `
+                    <div class="p-2 min-w-[150px]">
+                        <h4 class="font-black text-sm border-b pb-1 mb-2 uppercase">{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}</h4>
+                        <p class="text-[11px] font-bold text-blue-600 italic mb-2">📍 Servicio: {{ f.servicio }}</p>
+                        <p class="text-[9px] font-black {{ 'text-emerald-500' if f.tipo == 'ENTRADA' else 'text-rose-500' }} uppercase">
+                            {{ f.tipo }}: {{ f.fecha_hora }}
+                        </p>
+                    </div>
+                `;
+                marker.bindPopup(popupContent);
+                marker.on('mouseover', function (e) { this.openPopup(); });
+                bounds.push([{{ f.latitud }}, {{ f.longitud }}]);
+            })();
+        {% endfor %}
+        if (bounds.length > 0) mapAdmin.fitBounds(bounds, { padding: [50, 50] });
     </script>
 </body>
 </html>

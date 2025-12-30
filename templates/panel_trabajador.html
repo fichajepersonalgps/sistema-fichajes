@@ -3,131 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Fichaje</title>
+    <title>Fichaje GPS - Panel Trabajador</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="manifest" href="/static/manifest.json">
-    <style>button:disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }</style>
 </head>
-<body class="bg-slate-100 min-h-screen pb-24">
-    <audio id="sndNotif" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
-
-    <div id="modalLegal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-        <div class="bg-white rounded-3xl p-8 shadow-2xl max-w-sm text-center">
-            <h2 class="text-xl font-bold text-slate-800 mb-2">Aviso GPS</h2>
-            <p class="text-sm text-slate-600 mb-6">Se capturará su posición al fichar.</p>
-            <button onclick="aceptarGPS()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold">ACEPTAR</button>
-        </div>
-    </div>
+<body class="bg-slate-50 min-h-screen">
 
     <div class="max-w-md mx-auto p-4">
-        <div class="bg-white rounded-2xl shadow-sm p-6 mb-4 flex justify-between items-center border-b-4 border-blue-500">
+        <header class="bg-white rounded-3xl p-6 shadow-sm mb-4 border-b-4 border-blue-600 flex justify-between items-center">
             <div>
-                <h1 class="text-lg font-black text-slate-800">Hola, {{ worker.nombre }}</h1>
-                <p id="badgeEstado" class="text-[10px] font-bold uppercase"></p>
+                <h1 class="text-xl font-black text-slate-800 capitalize">{{ worker.nombre }}</h1>
+                <p id="txtEstado" class="text-[10px] font-bold uppercase tracking-widest mt-1 text-slate-400">Cargando estado...</p>
             </div>
-            <a href="/" class="text-[10px] bg-slate-50 border px-3 py-1 rounded-full text-slate-400 font-bold uppercase">Salir</a>
+            <a href="/" class="text-[10px] bg-slate-100 px-3 py-1 rounded-full text-slate-400 font-bold uppercase">Salir</a>
+        </header>
+
+        <div class="bg-white rounded-3xl p-5 shadow-sm mb-4">
+            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">Nombre del Servicio / Cliente</label>
+            <input type="text" id="inputServicio" placeholder="Ej: Limpieza Oficinas / Obra Norte" 
+                   class="w-full p-4 rounded-2xl border-none bg-slate-50 shadow-inner focus:ring-2 focus:ring-blue-500 font-bold text-slate-700">
         </div>
 
-        <button onclick="solicitarPermisos()" class="w-full bg-orange-100 text-orange-600 text-[10px] font-bold py-3 rounded-2xl mb-4 uppercase tracking-widest border border-orange-200">
-            🔔 Activar Sonido y Notificaciones
-        </button>
-
-        <div id="map" class="h-48 rounded-2xl shadow-inner mb-6 border-4 border-white overflow-hidden"></div>
+        <div id="map" class="h-64 rounded-3xl shadow-md mb-6 border-4 border-white overflow-hidden"></div>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
-            <button id="btnEntrada" onclick="fichar('ENTRADA')" disabled class="bg-emerald-500 text-white p-6 rounded-3xl font-black shadow-lg">ENTRADA</button>
-            <button id="btnSalida" onclick="fichar('SALIDA')" disabled class="bg-rose-500 text-white p-6 rounded-3xl font-black shadow-lg">SALIDA</button>
+            <button id="btnEntrada" onclick="fichar('ENTRADA')" disabled 
+                    class="bg-emerald-500 text-white py-8 rounded-3xl font-black text-xl shadow-lg active:scale-95 transition-all disabled:opacity-20">
+                ENTRADA
+            </button>
+            <button id="btnSalida" onclick="fichar('SALIDA')" disabled 
+                    class="bg-rose-500 text-white py-8 rounded-3xl font-black text-xl shadow-lg active:scale-95 transition-all disabled:opacity-20">
+                SALIDA
+            </button>
         </div>
     </div>
 
-    <a id="btnChatFlotante" href="/chat_lista/{{ worker.id }}" class="fixed bottom-6 right-6 bg-blue-600 text-white p-5 rounded-full shadow-2xl border-4 border-white z-50">
-        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-        <span id="notificacionChat" class="hidden absolute -top-1 -right-1 bg-rose-500 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">!</span>
-    </a>
-
     <script>
-        let lat, lon, conteoMensajes = 0;
-        const map = L.map('map').setView([40.41, -3.70], 13);
+        let lat, lon;
+        const map = L.map('map', { zoomControl: false }).setView([40.41, -3.70], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let marker;
 
-        // 1. SOLICITAR PERMISOS (PARA IPHONE)
-        async function solicitarPermisos() {
-            const permission = await Notification.requestPermission();
-            const audio = document.getElementById('sndNotif');
-            audio.muted = false;
-            audio.play().then(() => {
-                audio.pause();
-                alert("Sonido y Notificaciones activados.");
-            }).catch(e => alert("Toca de nuevo para activar audio."));
-        }
-
-        window.onload = () => {
-            if (localStorage.getItem('gps_autorizado') === 'true') {
-                document.getElementById('modalLegal').classList.add('hidden');
-                activarGPS();
-            }
-            actualizarInterfaz(localStorage.getItem('en_servicio') === 'true');
-            chequearNuevosMensajes();
-        };
-
-        function aceptarGPS() {
-            localStorage.setItem('gps_autorizado', 'true');
-            document.getElementById('modalLegal').classList.add('hidden');
-            activarGPS();
-        }
-
-        function activarGPS() {
+        // Geolocalización constante
+        function iniciarGPS() {
             navigator.geolocation.watchPosition(pos => {
-                lat = pos.coords.latitude; lon = pos.coords.longitude;
+                lat = pos.coords.latitude; 
+                lon = pos.coords.longitude;
+                
                 if (marker) map.removeLayer(marker);
-                marker = L.marker([lat, lon]).addTo(map);
+                marker = L.circle([lat, lon], {
+                    radius: 12,
+                    color: '#2563eb',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.5
+                }).addTo(map);
+                
                 map.setView([lat, lon], 16);
-            }, null, { enableHighAccuracy: true });
-        }
-
-        function actualizarInterfaz(estaTrabajando) {
-            document.getElementById('btnEntrada').disabled = estaTrabajando;
-            document.getElementById('btnSalida').disabled = !estaTrabajando;
-            const badge = document.getElementById('badgeEstado');
-            badge.innerText = estaTrabajando ? "En Servicio" : "Fuera";
-            badge.className = estaTrabajando ? "text-emerald-600 font-bold" : "text-slate-400 font-bold";
+            }, err => {
+                alert("Por favor, activa el GPS para poder fichar.");
+            }, { enableHighAccuracy: true });
         }
 
         async function fichar(tipo) {
-            if (!lat) return alert("Buscando GPS...");
+            const servicio = document.getElementById('inputServicio').value.trim();
+            
+            if (!servicio) {
+                alert("Debes escribir el nombre del servicio (cliente o lugar).");
+                return;
+            }
+            if (!lat) {
+                alert("Esperando señal GPS...");
+                return;
+            }
+
             const fd = new FormData();
-            fd.append('worker_id', '{{ worker.id }}'); fd.append('tipo', tipo);
-            fd.append('lat', lat); fd.append('lon', lon);
-            const res = await fetch('/fichar', { method: 'POST', body: fd });
-            if (res.ok) {
-                localStorage.setItem('en_servicio', tipo === 'ENTRADA');
-                actualizarInterfaz(tipo === 'ENTRADA');
+            fd.append('worker_id', '{{ worker.id }}');
+            fd.append('tipo', tipo);
+            fd.append('lat', lat);
+            fd.append('lon', lon);
+            fd.append('servicio', servicio);
+            
+            try {
+                const res = await fetch('/fichar', { method: 'POST', body: fd });
+                if (res.ok) {
+                    localStorage.setItem('en_servicio', tipo === 'ENTRADA');
+                    if(tipo === 'ENTRADA') {
+                        localStorage.setItem('nombre_servicio', servicio);
+                    } else {
+                        localStorage.removeItem('nombre_servicio');
+                        document.getElementById('inputServicio').value = "";
+                    }
+                    actualizarInterfaz();
+                }
+            } catch (error) {
+                alert("Error de conexión. Inténtalo de nuevo.");
             }
         }
 
-        async function chequearNuevosMensajes() {
-            try {
-                const res = await fetch('/mensajes_nuevos/{{ worker.id }}');
-                const data = await res.json();
-                const globo = document.getElementById('notificacionChat');
-                if (data.mensajes.length > 0) {
-                    globo.classList.remove('hidden');
-                    if (data.mensajes.length > conteoMensajes) {
-                        document.getElementById('sndNotif').play().catch(() => {});
-                        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                    }
-                } else { globo.classList.add('hidden'); }
-                conteoMensajes = data.mensajes.length;
-            } catch (e) {}
+        function actualizarInterfaz() {
+            const esEntrada = localStorage.getItem('en_servicio') === 'true';
+            document.getElementById('btnEntrada').disabled = esEntrada;
+            document.getElementById('btnSalida').disabled = !esEntrada;
+            
+            const txt = document.getElementById('txtEstado');
+            txt.innerText = esEntrada ? "Estado: EN SERVICIO" : "Estado: FUERA DE SERVICIO";
+            txt.className = esEntrada ? "text-emerald-500 font-bold text-[10px] uppercase tracking-widest mt-1" : "text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1";
+            
+            // Recuperar el nombre del servicio si ya está dentro
+            if (esEntrada && localStorage.getItem('nombre_servicio')) {
+                document.getElementById('inputServicio').value = localStorage.getItem('nombre_servicio');
+            }
         }
-        setInterval(chequearNuevosMensajes, 5000);
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/service-worker.js');
-        }
+        window.onload = () => {
+            iniciarGPS();
+            actualizarInterfaz();
+        };
     </script>
 </body>
 </html>
