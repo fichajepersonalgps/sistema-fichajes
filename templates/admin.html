@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Supervisión</title>
+    <title>Admin - Panel de Control</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>@media print { .no-print { display: none; } }</style>
+    <style>
+        @media print { .no-print { display: none; } body { background: white; } .print-only { display: block !important; } }
+        .print-only { display: none; }
+    </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
     <nav class="bg-slate-900 text-white p-4 sticky top-0 z-[1001] no-print">
@@ -17,16 +20,14 @@
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto p-4">
-        <div class="bg-white rounded-[2.5rem] shadow-sm p-2 mb-6 border-4 border-white no-print">
-            <div id="mapAdmin" class="h-80 md:h-[500px] rounded-[2rem] overflow-hidden"></div>
-        </div>
+    <main class="max-w-6xl mx-auto p-4 lg:p-6">
+        <div id="mapAdmin" class="h-80 md:h-[450px] rounded-[2rem] shadow-sm mb-6 border-4 border-white no-print"></div>
 
-        <section class="bg-white rounded-3xl p-6 mb-6 no-print shadow-sm border border-slate-200">
-            <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <section class="bg-white rounded-3xl p-6 mb-6 no-print shadow-sm">
+            <form method="GET" id="filterForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <input type="hidden" name="admin_id" value="{{ admin_id }}">
-                <select name="trabajador_id" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
-                    <option value="">Todos los empleados</option>
+                <select name="trabajador_id" id="selTrabajador" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
+                    <option value="">-- Seleccionar Trabajador --</option>
                     {% for t in trabajadores %}
                     <option value="{{ t.id }}" {% if filtro_trabajador == t.id %}selected{% endif %}>{{ t.nombre }} {{ t.apellidos }}</option>
                     {% endfor %}
@@ -34,32 +35,59 @@
                 <input type="month" name="mes" value="{{ mes_actual }}" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
                 <div class="md:col-span-2 flex gap-2">
                     <button type="submit" class="flex-1 bg-blue-600 text-white font-black rounded-xl py-3 uppercase text-xs">Filtrar</button>
-                    <button type="button" onclick="window.print()" class="bg-slate-100 p-3 rounded-xl">🖨️ PDF</button>
+                    <button type="button" onclick="validarPDF()" class="bg-slate-800 text-white font-black rounded-xl px-6 py-3 uppercase text-xs">PDF</button>
                 </div>
             </form>
         </section>
 
-        <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-200">
-            <table class="w-full text-left text-xs">
+        <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-200 p-4">
+            <h2 class="font-black text-slate-800 mb-4 uppercase text-sm">Reporte de Actividad</h2>
+            <table class="w-full text-left text-[11px]">
                 <thead class="bg-slate-50 border-b">
                     <tr>
-                        <th class="p-4 font-black text-slate-400 uppercase">Trabajador</th>
-                        <th class="p-4 font-black text-slate-400 uppercase">Estado</th>
-                        <th class="p-4 font-black text-slate-400 uppercase">Servicio</th>
-                        <th class="p-4 font-black text-slate-400 uppercase">Fecha/Hora</th>
+                        <th class="p-3 font-black text-slate-400">TRABAJADOR / DNI</th>
+                        <th class="p-3 font-black text-slate-400">SERVICIO</th>
+                        <th class="p-3 font-black text-slate-400">FECHA</th>
+                        <th class="p-3 font-black text-slate-400 text-emerald-600">ENTRADA</th>
+                        <th class="p-3 font-black text-slate-400 text-rose-600">SALIDA</th>
+                        <th class="p-3 font-black text-slate-400">HORAS</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
+                    {% set total_mes = namespace(horas=0) %}
                     {% for f in fichajes %}
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-4 font-bold capitalize">{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}</td>
-                        <td class="p-4"><span class="px-2 py-0.5 rounded-md font-black {{ 'bg-emerald-100 text-emerald-600' if f.tipo == 'ENTRADA' else 'bg-rose-100 text-rose-600' }}">{{ f.tipo }}</span></td>
-                        <td class="p-4 font-bold text-blue-600 italic">{{ f.servicio }}</td>
-                        <td class="p-4 text-slate-400 font-medium">{{ f.fecha_hora }}</td>
-                    </tr>
+                        {% if f.tipo == 'ENTRADA' %}
+                            <tr>
+                                <td class="p-3 font-bold">{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}<br><span class="text-slate-400">{{ f.trabajadores.dni_nie }}</span></td>
+                                <td class="p-3 font-medium text-blue-600 italic">{{ f.servicio }}</td>
+                                <td class="p-3">{{ f.fecha_f }}</td>
+                                <td class="p-3 font-black text-emerald-500">{{ f.hora_f }}</td>
+                                <td class="p-3 font-black text-rose-500">
+                                    {% set salida = namespace(found=false, hora='', dt=none) %}
+                                    {% for s in fichajes %}
+                                        {% if s.tipo == 'SALIDA' and s.trabajador_id == f.trabajador_id and s.fecha_f == f.fecha_f %}
+                                            {{ s.hora_f }}
+                                            {% set salida.found = true %}{% set salida.dt = s.dt_obj %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not salida.found %}--:--{% endif %}
+                                </td>
+                                <td class="p-3 font-black">
+                                    {% if salida.found %}
+                                        {% set diff = (salida.dt - f.dt_obj).total_seconds() / 3600 %}
+                                        {{ diff | round(2) }}h
+                                        {% set total_mes.horas = total_mes.horas + diff %}
+                                    {% else %} En curso {% endif %}
+                                </td>
+                            </tr>
+                        {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
+            <div class="mt-6 p-4 bg-slate-900 text-white rounded-2xl flex justify-between items-center">
+                <span class="font-bold text-xs uppercase">Total Horas Mensuales:</span>
+                <span class="text-xl font-black text-blue-400">{{ total_mes.horas | round(2) }} Horas</span>
+            </div>
         </div>
     </main>
 
@@ -67,29 +95,49 @@
         const mapAdmin = L.map('mapAdmin', { zoomControl: false }).setView([40.41, -3.70], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapAdmin);
         const bounds = [];
+        const activos = new Set();
+        const yaSalieron = new Set();
+
+        // Lógica de Puntos Activos (Desaparecen al fichar salida)
+        {% for f in fichajes %}
+            {% if f.tipo == 'SALIDA' %} yaSalieron.add("{{ f.trabajador_id }}"); {% endif %}
+        {% endfor %}
 
         {% for f in fichajes %}
-            (function() {
-                const color = "{{ f.tipo }}" === "ENTRADA" ? "#10b981" : "#f43f5e";
-                const marker = L.circleMarker([{{ f.latitud }}, {{ f.longitud }}], {
-                    radius: 10, fillColor: color, color: "white", weight: 3, fillOpacity: 0.9
-                }).addTo(mapAdmin);
+            {% if f.tipo == 'ENTRADA' and not f.trabajador_id in yaSalieron and not f.trabajador_id in activos %}
+                (function() {
+                    const marker = L.circleMarker([{{ f.latitud }}, {{ f.longitud }}], {
+                        radius: 10, fillColor: "#10b981", color: "white", weight: 3, fillOpacity: 0.9
+                    }).addTo(mapAdmin);
 
-                const popupContent = `
-                    <div class="p-2 min-w-[150px]">
-                        <h4 class="font-black text-sm border-b pb-1 mb-2 uppercase">{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}</h4>
-                        <p class="text-[11px] font-bold text-blue-600 italic mb-2">📍 Servicio: {{ f.servicio }}</p>
-                        <p class="text-[9px] font-black {{ 'text-emerald-500' if f.tipo == 'ENTRADA' else 'text-rose-500' }} uppercase">
-                            {{ f.tipo }}: {{ f.fecha_hora }}
-                        </p>
-                    </div>
-                `;
-                marker.bindPopup(popupContent);
-                marker.on('mouseover', function (e) { this.openPopup(); });
-                bounds.push([{{ f.latitud }}, {{ f.longitud }}]);
-            })();
+                    const popup = L.popup({ closeButton: false, offset: [0, -10] })
+                        .setContent(`
+                            <div class="text-center p-1">
+                                <p class="font-black text-slate-800 uppercase text-[11px] leading-tight">{{ f.trabajadores.nombre }} {{ f.trabajadores.apellidos }}</p>
+                                <p class="text-blue-600 font-bold italic text-[10px] my-1">📍 {{ f.servicio }}</p>
+                                <p class="text-slate-400 font-bold text-[9px]">Entrada: {{ f.hora_f }} | {{ f.fecha_f }}</p>
+                            </div>
+                        `);
+
+                    marker.bindPopup(popup);
+                    marker.on('mouseover', function() { this.openPopup(); });
+                    marker.on('mouseout', function() { this.closePopup(); });
+                    bounds.push([{{ f.latitud }}, {{ f.longitud }}]);
+                    activos.add("{{ f.trabajador_id }}");
+                })();
+            {% endif %}
         {% endfor %}
+
         if (bounds.length > 0) mapAdmin.fitBounds(bounds, { padding: [50, 50] });
+
+        function validarPDF() {
+            const trabajador = document.getElementById('selTrabajador').value;
+            if (!trabajador) {
+                alert("Debes seleccionar un trabajador específico para generar el reporte PDF.");
+                return;
+            }
+            window.print();
+        }
     </script>
 </body>
 </html>

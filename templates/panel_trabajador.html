@@ -15,66 +15,83 @@
         <header class="bg-white rounded-3xl p-6 shadow-sm mb-4 border-b-4 border-blue-600 flex justify-between items-center">
             <div>
                 <h1 class="text-xl font-black text-slate-800 capitalize">{{ worker.nombre }}</h1>
-                <p id="txtEstado" class="text-[10px] font-bold uppercase tracking-widest mt-1 text-slate-400">Cargando estado...</p>
+                <p id="txtEstado" class="text-[10px] font-bold uppercase tracking-widest mt-1 text-slate-400 italic">Localizando GPS...</p>
             </div>
-            <a href="/" class="text-[10px] bg-slate-100 px-3 py-1 rounded-full text-slate-400 font-bold uppercase">Salir</a>
+            <a href="/" class="text-[10px] bg-slate-100 px-4 py-2 rounded-full text-slate-400 font-bold uppercase hover:bg-slate-200 transition-all">Salir</a>
         </header>
 
         <div class="bg-white rounded-3xl p-5 shadow-sm mb-4">
-            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">Nombre del Servicio / Cliente</label>
-            <input type="text" id="inputServicio" placeholder="Ej: Limpieza Oficinas / Obra Norte" 
-                   class="w-full p-4 rounded-2xl border-none bg-slate-50 shadow-inner focus:ring-2 focus:ring-blue-500 font-bold text-slate-700">
+            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-wider">Identificación del Servicio</label>
+            <input type="text" id="inputServicio" placeholder="Nombre del cliente o servicio..." 
+                   class="w-full p-4 rounded-2xl border-none bg-slate-50 shadow-inner focus:ring-2 focus:ring-blue-600 font-bold text-slate-700">
         </div>
 
-        <div id="map" class="h-64 rounded-3xl shadow-md mb-6 border-4 border-white overflow-hidden"></div>
+        <div id="map" class="h-64 rounded-3xl shadow-md mb-6 border-4 border-white overflow-hidden z-0"></div>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
             <button id="btnEntrada" onclick="fichar('ENTRADA')" disabled 
-                    class="bg-emerald-500 text-white py-8 rounded-3xl font-black text-xl shadow-lg active:scale-95 transition-all disabled:opacity-20">
+                    class="bg-emerald-500 text-white py-8 rounded-3xl font-black text-xl shadow-lg active:scale-95 transition-all disabled:opacity-20 disabled:grayscale">
                 ENTRADA
             </button>
             <button id="btnSalida" onclick="fichar('SALIDA')" disabled 
-                    class="bg-rose-500 text-white py-8 rounded-3xl font-black text-xl shadow-lg active:scale-95 transition-all disabled:opacity-20">
+                    class="bg-rose-500 text-white py-8 rounded-3xl font-black text-xl shadow-lg active:scale-95 transition-all disabled:opacity-20 disabled:grayscale">
                 SALIDA
             </button>
         </div>
+
+        <p class="text-center text-[9px] text-slate-400 font-bold uppercase tracking-tighter">
+            Asegúrate de tener el GPS activado para registrar tu ubicación
+        </p>
     </div>
 
     <script>
         let lat, lon;
+        // Inicializar mapa centrado por defecto
         const map = L.map('map', { zoomControl: false }).setView([40.41, -3.70], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let marker;
 
-        // Geolocalización constante
-        function iniciarGPS() {
+        // Iniciar seguimiento GPS de alta precisión
+        function iniciarSeguimiento() {
+            if (!navigator.geolocation) {
+                alert("Tu navegador no soporta GPS.");
+                return;
+            }
+
             navigator.geolocation.watchPosition(pos => {
                 lat = pos.coords.latitude; 
                 lon = pos.coords.longitude;
                 
+                // Actualizar marcador visual del trabajador
                 if (marker) map.removeLayer(marker);
                 marker = L.circle([lat, lon], {
-                    radius: 12,
+                    radius: 10,
                     color: '#2563eb',
                     fillColor: '#3b82f6',
-                    fillOpacity: 0.5
+                    fillOpacity: 0.6
                 }).addTo(map);
                 
                 map.setView([lat, lon], 16);
+                actualizarInterfaz(); // Activar botones una vez tenemos GPS
             }, err => {
-                alert("Por favor, activa el GPS para poder fichar.");
-            }, { enableHighAccuracy: true });
+                console.warn("Error de ubicación: " + err.message);
+            }, { 
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0 
+            });
         }
 
         async function fichar(tipo) {
             const servicio = document.getElementById('inputServicio').value.trim();
             
+            // Validaciones de seguridad
             if (!servicio) {
-                alert("Debes escribir el nombre del servicio (cliente o lugar).");
+                alert("Por favor, introduce el nombre del servicio o cliente.");
                 return;
             }
-            if (!lat) {
-                alert("Esperando señal GPS...");
+            if (!lat || !lon) {
+                alert("Buscando señal GPS... Por favor espera unos segundos.");
                 return;
             }
 
@@ -88,37 +105,60 @@
             try {
                 const res = await fetch('/fichar', { method: 'POST', body: fd });
                 if (res.ok) {
+                    // Guardar estado localmente
                     localStorage.setItem('en_servicio', tipo === 'ENTRADA');
+                    
                     if(tipo === 'ENTRADA') {
                         localStorage.setItem('nombre_servicio', servicio);
                     } else {
+                        // Al salir, borramos todo para el siguiente servicio
                         localStorage.removeItem('nombre_servicio');
                         document.getElementById('inputServicio').value = "";
                     }
                     actualizarInterfaz();
+                    alert(tipo + " registrada correctamente.");
+                } else {
+                    alert("Error en el servidor. Inténtalo de nuevo.");
                 }
-            } catch (error) {
-                alert("Error de conexión. Inténtalo de nuevo.");
+            } catch (e) {
+                alert("Error de conexión a internet.");
             }
         }
 
         function actualizarInterfaz() {
             const esEntrada = localStorage.getItem('en_servicio') === 'true';
-            document.getElementById('btnEntrada').disabled = esEntrada;
-            document.getElementById('btnSalida').disabled = !esEntrada;
+            
+            // Si no hay GPS (lat es undefined), los botones se quedan desactivados
+            const botonesBloqueados = !lat;
+
+            document.getElementById('btnEntrada').disabled = botonesBloqueados || esEntrada;
+            document.getElementById('btnSalida').disabled = botonesBloqueados || !esEntrada;
             
             const txt = document.getElementById('txtEstado');
-            txt.innerText = esEntrada ? "Estado: EN SERVICIO" : "Estado: FUERA DE SERVICIO";
-            txt.className = esEntrada ? "text-emerald-500 font-bold text-[10px] uppercase tracking-widest mt-1" : "text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1";
+            if (!lat) {
+                txt.innerText = "Buscando señal GPS...";
+                txt.className = "text-[10px] font-bold uppercase tracking-widest mt-1 text-amber-500";
+            } else {
+                txt.innerText = esEntrada ? "Estado: TRABAJANDO" : "Estado: DISPONIBLE";
+                txt.className = esEntrada ? "text-emerald-500 font-bold text-[10px] uppercase tracking-widest mt-1" : "text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1";
+            }
             
-            // Recuperar el nombre del servicio si ya está dentro
+            // Rellenar automáticamente el servicio si el trabajador ya está dentro
             if (esEntrada && localStorage.getItem('nombre_servicio')) {
-                document.getElementById('inputServicio').value = localStorage.getItem('nombre_servicio');
+                const input = document.getElementById('inputServicio');
+                input.value = localStorage.getItem('nombre_servicio');
+                input.readOnly = true; // Evitar que cambie el nombre del servicio hasta que fiche salida
+                input.classList.add('bg-slate-100', 'text-slate-500');
+            } else {
+                const input = document.getElementById('inputServicio');
+                input.readOnly = false;
+                input.classList.remove('bg-slate-100', 'text-slate-500');
             }
         }
 
+        // Al cargar la página, iniciar el seguimiento
         window.onload = () => {
-            iniciarGPS();
+            iniciarSeguimiento();
             actualizarInterfaz();
         };
     </script>
