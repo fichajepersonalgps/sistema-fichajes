@@ -11,7 +11,7 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Configuración Supabase y Zona Horaria
+# Configuración
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -34,34 +34,42 @@ async def login(request: Request, dni: str = Form(...), password: str = Form(Non
 
 @app.get("/admin")
 async def admin_page(request: Request, admin_id: str, trabajador_id: str = None, mes: str = None):
-    trabajadores = supabase.table("trabajadores").select("*").neq("rol", "admin").execute().data
-    
-    # Consulta de fichajes
-    query = supabase.table("fichajes").select("*, trabajadores(*)").order("fecha_hora", desc=True)
-    if trabajador_id:
-        query = query.eq("trabajador_id", trabajador_id)
-    if mes:
-        query = query.filter("fecha_hora", "gte", f"{mes}-01").filter("fecha_hora", "lt", f"{mes}-32")
-    
-    fichajes_raw = query.execute().data
-    
-    # Formatear datos para Jinja2
-    fichajes_procesados = []
-    for f in fichajes_raw:
-        dt = datetime.fromisoformat(f['fecha_hora'].replace('Z', '+00:00')).astimezone(SPAIN_TZ)
-        f['fecha_f'] = dt.strftime("%d/%m/%Y")
-        f['hora_f'] = dt.strftime("%H:%M")
-        f['dt_obj'] = dt
-        fichajes_procesados.append(f)
+    try:
+        # 1. Obtener lista de trabajadores para los filtros
+        trabajadores = supabase.table("trabajadores").select("*").neq("rol", "admin").execute().data
+        
+        # 2. Construir consulta de fichajes
+        query = supabase.table("fichajes").select("*, trabajadores(*)").order("fecha_hora", desc=True)
+        
+        # Filtrado por trabajador si se selecciona uno
+        if trabajador_id and trabajador_id != "":
+            query = query.eq("trabajador_id", trabajador_id)
+        
+        # Filtrado por mes
+        if mes:
+            query = query.filter("fecha_hora", "gte", f"{mes}-01").filter("fecha_hora", "lt", f"{mes}-32")
+        
+        fichajes_raw = query.execute().data
+        
+        # 3. Procesar zona horaria y formatos
+        fichajes_procesados = []
+        for f in fichajes_raw:
+            dt = datetime.fromisoformat(f['fecha_hora'].replace('Z', '+00:00')).astimezone(SPAIN_TZ)
+            f['fecha_f'] = dt.strftime("%d/%m/%Y")
+            f['hora_f'] = dt.strftime("%H:%M")
+            f['dt_obj'] = dt
+            fichajes_procesados.append(f)
 
-    return templates.TemplateResponse("admin.html", {
-        "request": request, 
-        "trabajadores": trabajadores, 
-        "fichajes": fichajes_procesados,
-        "admin_id": admin_id, 
-        "filtro_trabajador": trabajador_id,
-        "mes_actual": mes or datetime.now().strftime("%Y-%m")
-    })
+        return templates.TemplateResponse("admin.html", {
+            "request": request, 
+            "trabajadores": trabajadores, 
+            "fichajes": fichajes_procesados,
+            "admin_id": admin_id, 
+            "filtro_trabajador": trabajador_id,
+            "mes_actual": mes or datetime.now().strftime("%Y-%m")
+        })
+    except Exception as e:
+        return {"error": "Internal Server Error", "detalle": str(e)}
 
 @app.post("/fichar")
 async def registrar_fichaje(worker_id: str = Form(...), tipo: str = Form(...), lat: float = Form(...), lon: float = Form(...), servicio: str = Form(...)):
