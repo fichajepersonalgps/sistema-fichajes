@@ -51,7 +51,7 @@ async def admin_page(request: Request, admin_id: str, trabajador_id: str = None,
             dt = datetime.fromisoformat(f['fecha_hora'].replace('Z', '+00:00')).astimezone(SPAIN_TZ)
             f['fecha_f'] = dt.strftime("%d/%m/%Y")
             f['hora_f'] = dt.strftime("%H:%M")
-            f['ts'] = dt.timestamp() # Usamos timestamp para comparar fácilmente
+            f['ts'] = dt.timestamp()
             fichajes_procesados.append(f)
 
         return templates.TemplateResponse("admin.html", {

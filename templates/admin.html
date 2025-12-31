@@ -11,9 +11,9 @@
             .no-print { display: none !important; }
             body { background: white; padding: 0; margin: 0; }
             .print-container { width: 100%; border: none !important; box-shadow: none !important; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border-bottom: 1px solid #e2e8f0; }
         }
+        /* Estilo para botón deshabilitado visualmente */
+        .btn-disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
@@ -26,7 +26,7 @@
         <div id="mapAdmin" class="h-64 md:h-80 rounded-3xl shadow-sm mb-6 border-4 border-white no-print"></div>
 
         <section class="bg-white rounded-3xl p-6 mb-6 shadow-sm no-print border border-slate-100">
-            <form method="GET" id="filtroForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <input type="hidden" name="admin_id" value="{{ admin_id }}">
                 <select name="trabajador_id" id="selTrabajador" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
                     <option value="">-- Todos los Trabajadores --</option>
@@ -37,30 +37,26 @@
                 <input type="month" name="mes" value="{{ mes_actual }}" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
                 <div class="md:col-span-2 flex gap-2">
                     <button type="submit" class="flex-1 bg-blue-600 text-white font-black rounded-xl py-3 text-xs">FILTRAR</button>
-                    <button type="button" onclick="generarPDF()" class="bg-slate-800 text-white font-black rounded-xl px-6 py-3 text-xs">PDF</button>
+                    <button type="button" id="btnPdf" onclick="window.print()" 
+                        class="bg-slate-800 text-white font-black rounded-xl px-6 py-3 text-xs {% if not filtro_trabajador %}btn-disabled{% endif %}">
+                        PDF
+                    </button>
                 </div>
             </form>
         </section>
 
         <div class="print-container bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
-            
             <div class="text-center mb-8">
                 <h2 class="text-xl font-black uppercase text-slate-800">Reporte Mensual de Actividad</h2>
-                <p class="text-blue-500 font-bold italic">Periodo: {{ mes_actual }}</p>
+                <p class="text-blue-500 font-bold italic">{{ mes_actual }}</p>
             </div>
 
             {% if filtro_trabajador %}
-                {% set info = namespace(nombre='', dni='') %}
-                {% for t in trabajadores %}
-                    {% if t.id|string == filtro_trabajador|string %}
-                        {% set info.nombre = t.nombre ~ " " ~ t.apellidos %}
-                        {% set info.dni = t.dni_nie %}
-                    {% endif %}
-                {% endfor %}
+                {% set info = namespace(n='', d='') %}
+                {% for t in trabajadores %}{% if t.id|string == filtro_trabajador|string %}{% set info.n = t.nombre ~ " " ~ t.apellidos %}{% set info.d = t.dni_nie %}{% endif %}{% endfor %}
                 <div class="mb-6 p-4 bg-slate-50 rounded-2xl border-l-4 border-blue-600">
-                    <p class="text-[10px] font-black text-slate-400 uppercase">Trabajador:</p>
-                    <p class="text-lg font-black text-slate-800 uppercase">{{ info.nombre }}</p>
-                    <p class="text-xs font-bold text-slate-500">DNI/NIE: {{ info.dni }}</p>
+                    <p class="text-lg font-black text-slate-800 uppercase">{{ info.n }}</p>
+                    <p class="text-xs font-bold text-slate-500 font-mono">DNI/NIE: {{ info.d }}</p>
                 </div>
             {% endif %}
 
@@ -78,13 +74,13 @@
                 <tbody class="divide-y">
                     {% set total_mes = namespace(h=0) %}
                     {% for f in fichajes %}
-                        {# REGLA DE FILTRO: Solo dibuja la fila si coincide con el ID filtrado o si no hay filtro #}
+                        {# Filtrado estricto para que el PDF no incluya a otros #}
                         {% if not filtro_trabajador or f.trabajador_id|string == filtro_trabajador|string %}
                             {% if f.tipo == 'ENTRADA' %}
                             <tr>
                                 {% if not filtro_trabajador %}<td class="p-3 font-bold">{{ f.trabajadores.nombre }}</td>{% endif %}
                                 <td class="p-3 font-black text-blue-600 italic uppercase">{{ f.servicio }}</td>
-                                <td class="p-3">{{ f.fecha_f }}</td>
+                                <td class="p-3 font-medium">{{ f.fecha_f }}</td>
                                 <td class="p-3 font-black text-emerald-500">{{ f.hora_f }}</td>
                                 <td class="p-3 font-black text-rose-500">
                                     {% set salida = namespace(v=false, h='', ts=0) %}
@@ -101,7 +97,7 @@
                                         {{ diff | round(2) }}h
                                         {% set total_mes.h = total_mes.h + diff %}
                                     {% else %}
-                                        <span class="text-amber-500 italic">En curso</span>
+                                        <span class="text-amber-500 italic opacity-60">En curso</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -113,14 +109,15 @@
 
             <div class="mt-8 pt-6 border-t flex justify-end">
                 <div class="text-right">
-                    <p class="text-[10px] font-black text-slate-400 uppercase">Total Acumulado:</p>
-                    <p class="text-4xl font-black text-slate-900">{{ total_mes.h | round(2) }} <span class="text-lg text-blue-500">Horas</span></p>
+                    <p class="text-[10px] font-black text-slate-400 uppercase">Total Cómputo:</p>
+                    <p class="text-4xl font-black text-slate-900">{{ total_mes.h | round(2) }} <span class="text-lg text-blue-500">h</span></p>
                 </div>
             </div>
         </div>
     </main>
 
     <script>
+        // Mapa Dinámico
         const mapAdmin = L.map('mapAdmin', { zoomControl: false }).setView([40.41, -3.70], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapAdmin);
         const bounds = [];
@@ -137,15 +134,6 @@
             }
         });
         if (bounds.length > 0) mapAdmin.fitBounds(bounds, {padding: [30, 30]});
-
-        function generarPDF() {
-            const trId = document.getElementById('selTrabajador').value;
-            if (!trId) {
-                alert("Para un PDF individual, selecciona un trabajador y pulsa FILTRAR primero.");
-                return;
-            }
-            window.print();
-        }
     </script>
 </body>
 </html>
