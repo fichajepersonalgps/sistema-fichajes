@@ -40,6 +40,11 @@ async def admin_page(request: Request, admin_id: str, trabajador_id: str = None,
         ano, mes_num = map(int, mes.split("-"))
         ultimo_dia = calendar.monthrange(ano, mes_num)[1]
         
+        # Formatear nombre del mes en español
+        meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        nombre_mes_formateado = f"{meses_es[mes_num-1]} {ano}"
+
         query = supabase.table("fichajes").select("*, trabajadores(*)").order("fecha_hora", desc=True)
         query = query.filter("fecha_hora", "gte", f"{mes}-01T00:00:00").filter("fecha_hora", "lte", f"{mes}-{ultimo_dia}T23:59:59")
         
@@ -55,8 +60,13 @@ async def admin_page(request: Request, admin_id: str, trabajador_id: str = None,
             fichajes_procesados.append(f)
 
         return templates.TemplateResponse("admin.html", {
-            "request": request, "trabajadores": trabajadores, "fichajes": fichajes_procesados,
-            "admin_id": admin_id, "filtro_trabajador": trabajador_id, "mes_actual": mes
+            "request": request, 
+            "trabajadores": trabajadores, 
+            "fichajes": fichajes_procesados,
+            "admin_id": admin_id, 
+            "filtro_trabajador": trabajador_id, 
+            "mes_actual": mes,
+            "mes_texto": nombre_mes_formateado
         })
     except Exception as e:
         return {"error": "Error de servidor", "detalle": str(e)}

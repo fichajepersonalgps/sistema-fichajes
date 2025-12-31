@@ -12,7 +12,6 @@
             body { background: white; padding: 0; margin: 0; }
             .print-container { width: 100%; border: none !important; box-shadow: none !important; }
         }
-        /* Estilo para botón deshabilitado visualmente */
         .btn-disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
     </style>
 </head>
@@ -48,7 +47,7 @@
         <div class="print-container bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
             <div class="text-center mb-8">
                 <h2 class="text-xl font-black uppercase text-slate-800">Reporte Mensual de Actividad</h2>
-                <p class="text-blue-500 font-bold italic">{{ mes_actual }}</p>
+                <p class="text-blue-500 font-bold italic">{{ mes_texto }}</p>
             </div>
 
             {% if filtro_trabajador %}
@@ -74,7 +73,6 @@
                 <tbody class="divide-y">
                     {% set total_mes = namespace(h=0) %}
                     {% for f in fichajes %}
-                        {# Filtrado estricto para que el PDF no incluya a otros #}
                         {% if not filtro_trabajador or f.trabajador_id|string == filtro_trabajador|string %}
                             {% if f.tipo == 'ENTRADA' %}
                             <tr>
@@ -117,7 +115,6 @@
     </main>
 
     <script>
-        // Mapa Dinámico
         const mapAdmin = L.map('mapAdmin', { zoomControl: false }).setView([40.41, -3.70], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapAdmin);
         const bounds = [];
