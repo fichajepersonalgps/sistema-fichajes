@@ -11,7 +11,7 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Configuración
+# Configuración Supabase y Zona Horaria
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -35,8 +35,9 @@ async def login(request: Request, dni: str = Form(...), password: str = Form(Non
 @app.get("/admin")
 async def admin_page(request: Request, admin_id: str, trabajador_id: str = None, mes: str = None):
     trabajadores = supabase.table("trabajadores").select("*").neq("rol", "admin").execute().data
-    query = supabase.table("fichajes").select("*, trabajadores(*)").order("fecha_hora", desc=True)
     
+    # Consulta de fichajes
+    query = supabase.table("fichajes").select("*, trabajadores(*)").order("fecha_hora", desc=True)
     if trabajador_id:
         query = query.eq("trabajador_id", trabajador_id)
     if mes:
@@ -44,7 +45,7 @@ async def admin_page(request: Request, admin_id: str, trabajador_id: str = None,
     
     fichajes_raw = query.execute().data
     
-    # Procesamiento de datos para el reporte y zona horaria
+    # Formatear datos para Jinja2
     fichajes_procesados = []
     for f in fichajes_raw:
         dt = datetime.fromisoformat(f['fecha_hora'].replace('Z', '+00:00')).astimezone(SPAIN_TZ)
@@ -54,8 +55,11 @@ async def admin_page(request: Request, admin_id: str, trabajador_id: str = None,
         fichajes_procesados.append(f)
 
     return templates.TemplateResponse("admin.html", {
-        "request": request, "trabajadores": trabajadores, "fichajes": fichajes_procesados,
-        "admin_id": admin_id, "filtro_trabajador": trabajador_id,
+        "request": request, 
+        "trabajadores": trabajadores, 
+        "fichajes": fichajes_procesados,
+        "admin_id": admin_id, 
+        "filtro_trabajador": trabajador_id,
         "mes_actual": mes or datetime.now().strftime("%Y-%m")
     })
 
