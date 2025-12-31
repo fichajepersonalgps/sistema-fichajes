@@ -2,34 +2,25 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Administrador</title>
+    <title>Admin - ControlGeo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        @media print { 
-            .no-print { display: none !important; } 
-            body { background: white; }
-            .print-container { width: 100%; border: none !important; box-shadow: none !important; margin: 0; padding: 0; }
-        }
-    </style>
+    <style>@media print {.no-print {display:none !important;} .print-container {width:100%; border:none; box-shadow:none;}}</style>
 </head>
 <body class="bg-slate-50 min-h-screen">
-    <nav class="bg-slate-900 text-white p-4 no-print">
-        <div class="max-w-6xl mx-auto flex justify-between items-center">
-            <h1 class="font-black italic tracking-tighter text-xl">CONTROL<span class="text-blue-400">GEO</span></h1>
-            <a href="/" class="text-[10px] font-bold bg-rose-600 px-4 py-2 rounded-lg">CERRAR SESIÓN</a>
-        </div>
+    <nav class="bg-slate-900 text-white p-4 no-print flex justify-between items-center">
+        <h1 class="font-black italic">CONTROL<span class="text-blue-400">GEO</span></h1>
+        <a href="/" class="text-xs font-bold bg-rose-600 px-4 py-2 rounded-lg">SALIR</a>
     </nav>
 
     <main class="max-w-6xl mx-auto p-4">
-        <div id="mapAdmin" class="h-64 md:h-96 rounded-3xl shadow-inner mb-6 border-4 border-white no-print"></div>
+        <div id="mapAdmin" class="h-64 md:h-80 rounded-3xl shadow-sm mb-6 border-4 border-white no-print"></div>
 
         <section class="bg-white rounded-3xl p-6 mb-6 shadow-sm no-print border border-slate-100">
             <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <input type="hidden" name="admin_id" value="{{ admin_id }}">
-                <select name="trabajador_id" id="selTrabajador" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
+                <select name="trabajador_id" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
                     <option value="">Todos los trabajadores</option>
                     {% for t in trabajadores %}
                     <option value="{{ t.id }}" {% if filtro_trabajador|string == t.id|string %}selected{% endif %}>{{ t.nombre }} {{ t.apellidos }}</option>
@@ -37,120 +28,100 @@
                 </select>
                 <input type="month" name="mes" value="{{ mes_actual }}" class="p-3 rounded-xl bg-slate-50 border-none text-sm font-bold">
                 <div class="md:col-span-2 flex gap-2">
-                    <button type="submit" class="flex-1 bg-blue-600 text-white font-black rounded-xl py-3 uppercase text-xs hover:bg-blue-700 transition">Filtrar</button>
-                    <button type="button" onclick="window.print()" class="bg-slate-800 text-white font-black rounded-xl px-6 py-3 uppercase text-xs">PDF</button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white font-black rounded-xl py-3 text-xs">FILTRAR</button>
+                    <button type="button" onclick="window.print()" class="bg-slate-800 text-white font-black rounded-xl px-6 py-3 text-xs">PDF</button>
                 </div>
             </form>
         </section>
 
-        <div class="print-container bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-8">
-            <div class="text-center mb-6">
+        <div class="print-container bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
+            <div class="text-center mb-8">
                 <h2 class="text-xl font-black uppercase text-slate-800">Registro de Actividad</h2>
-                <p class="text-sm font-bold text-blue-500 italic">{{ mes_actual }}</p>
+                <p class="text-blue-500 font-bold italic">{{ mes_actual }}</p>
             </div>
 
             {% if filtro_trabajador %}
-                {% set info = namespace(nombre='', dni='') %}
-                {% for t in trabajadores %}
-                    {% if t.id|string == filtro_trabajador|string %}
-                        {% set info.nombre = t.nombre ~ " " ~ t.apellidos %}
-                        {% set info.dni = t.dni_nie %}
-                    {% endif %}
-                {% endfor %}
+                {% set info = namespace(n='', d='') %}
+                {% for t in trabajadores %}{% if t.id|string == filtro_trabajador|string %}{% set info.n = t.nombre ~ " " ~ t.apellidos %}{% set info.d = t.dni_nie %}{% endif %}{% endfor %}
                 <div class="mb-6 p-4 bg-slate-50 rounded-2xl border-l-4 border-blue-600">
-                    <p class="text-[10px] font-black text-slate-400 uppercase">Personal:</p>
-                    <p class="text-lg font-black text-slate-800 uppercase">{{ info.nombre }}</p>
-                    <p class="text-xs font-bold text-slate-500">Documento: {{ info.dni }}</p>
+                    <p class="text-lg font-black text-slate-800 uppercase">{{ info.n }}</p>
+                    <p class="text-xs font-bold text-slate-500">Documento: {{ info.d }}</p>
                 </div>
             {% endif %}
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-[11px]">
-                    <thead>
-                        <tr class="text-slate-400 border-b uppercase font-black">
-                            {% if not filtro_trabajador %}<th class="p-3">Trabajador</th>{% endif %}
-                            <th class="p-3">Servicio</th>
-                            <th class="p-3">Fecha</th>
-                            <th class="p-3 text-emerald-600">Entrada</th>
-                            <th class="p-3 text-rose-600">Salida</th>
-                            <th class="p-3 text-right text-slate-900">Horas</th>
+            <table class="w-full text-left text-[11px]">
+                <thead>
+                    <tr class="text-slate-400 border-b uppercase font-black">
+                        {% if not filtro_trabajador %}<th class="p-3">Trabajador</th>{% endif %}
+                        <th class="p-3">Servicio</th>
+                        <th class="p-3">Fecha</th>
+                        <th class="p-3 text-emerald-600">Entrada</th>
+                        <th class="p-3 text-rose-600">Salida</th>
+                        <th class="p-3 text-right text-slate-900">Horas</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% set total_mes = namespace(h=0) %}
+                    {% for f in fichajes %}
+                        {% if f.tipo == 'ENTRADA' %}
+                        <tr>
+                            {% if not filtro_trabajador %}<td class="p-3 font-bold">{{ f.trabajadores.nombre }}</td>{% endif %}
+                            <td class="p-3 font-black text-blue-600 italic uppercase">{{ f.servicio }}</td>
+                            <td class="p-3">{{ f.fecha_f }}</td>
+                            <td class="p-3 font-black text-emerald-500">{{ f.hora_f }}</td>
+                            <td class="p-3 font-black text-rose-500">
+                                {% set salida = namespace(v=false, h='', ts=0) %}
+                                {% for s in fichajes %}
+                                    {# Lógica Clave: Mismo día, mismo trabajador Y la salida debe ser posterior a la entrada #}
+                                    {% if not salida.v and s.tipo == 'SALIDA' and s.trabajador_id == f.trabajador_id and s.fecha_f == f.fecha_f and s.ts > f.ts %}
+                                        {% set salida.h = s.hora_f %}
+                                        {% set salida.ts = s.ts %}
+                                        {% set salida.v = true %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ salida.h if salida.v else '--:--' }}
+                            </td>
+                            <td class="p-3 font-black text-right">
+                                {% if salida.v %}
+                                    {% set diff = (salida.ts - f.ts) / 3600 %}
+                                    {{ diff | round(2) }}h
+                                    {% set total_mes.h = total_mes.h + diff %}
+                                {% else %}
+                                    <span class="text-amber-500 italic">En curso</span>
+                                {% endif %}
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y text-slate-700">
-                        {% set total_mes = namespace(horas=0) %}
-                        {% for f in fichajes %}
-                            {% if f.tipo == 'ENTRADA' %}
-                            <tr>
-                                {% if not filtro_trabajador %}<td class="p-3 font-bold">{{ f.trabajadores.nombre }}</td>{% endif %}
-                                <td class="p-3 font-black text-blue-600 italic uppercase">{{ f.servicio }}</td>
-                                <td class="p-3 font-medium">{{ f.fecha_f }}</td>
-                                <td class="p-3 font-black text-emerald-500">{{ f.hora_f }}</td>
-                                <td class="p-3 font-black text-rose-500">
-                                    {% set salida = namespace(found=false, dt=none) %}
-                                    {% for s in fichajes %}
-                                        {% if not salida.found and s.tipo == 'SALIDA' and s.trabajador_id == f.trabajador_id and s.fecha_f == f.fecha_f %}
-                                            {{ s.hora_f }}
-                                            {% set salida.found = true %}
-                                            {% set salida.dt = s.dt_obj %}
-                                        {% endif %}
-                                    {% endfor %}
-                                    {% if not salida.found %} <span class="text-amber-500 italic opacity-50">Pendiente</span> {% endif %}
-                                </td>
-                                <td class="p-3 font-black text-right">
-                                    {% if salida.found %}
-                                        {% set diff = (salida.dt - f.dt_obj).total_seconds() / 3600 %}
-                                        {{ diff | round(2) }}h
-                                        {% set total_mes.horas = total_mes.horas + diff %}
-                                    {% else %} -- {% endif %}
-                                </td>
-                            </tr>
-                            {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
 
             <div class="mt-8 pt-6 border-t flex justify-end">
                 <div class="text-right">
                     <p class="text-[10px] font-black text-slate-400 uppercase">Cómputo Total:</p>
-                    <p class="text-4xl font-black text-slate-900">{{ total_mes.horas | round(2) }}<span class="text-lg text-blue-500 ml-1">HORAS</span></p>
+                    <p class="text-4xl font-black text-slate-900">{{ total_mes.h | round(2) }} <span class="text-lg text-blue-500">h</span></p>
                 </div>
             </div>
         </div>
     </main>
 
     <script>
-        // Inicializar Mapa
         const mapAdmin = L.map('mapAdmin', { zoomControl: false }).setView([40.41, -3.70], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapAdmin);
         const bounds = [];
-
-        // Lógica de Puntos Activos (Puntos Verdes)
-        const estadoActual = {};
+        const ult = {};
         {% for f in fichajes | reverse %}
-            estadoActual["{{ f.trabajador_id }}"] = {
-                tipo: "{{ f.tipo }}",
-                lat: {{ f.latitud }},
-                lon: {{ f.longitud }},
-                nombre: "{{ f.trabajadores.nombre }}",
-                servicio: "{{ f.servicio }}",
-                hora: "{{ f.hora_f }}"
-            };
+            ult["{{ f.trabajador_id }}"] = {t: "{{ f.tipo }}", lat: {{ f.latitud }}, lon: {{ f.longitud }}, n: "{{ f.trabajadores.nombre }}", s: "{{ f.servicio }}"};
         {% endfor %}
-
-        Object.keys(estadoActual).forEach(id => {
-            const data = estadoActual[id];
-            if (data.tipo === 'ENTRADA') {
-                const marker = L.circleMarker([data.lat, data.lon], {
-                    radius: 10, fillColor: "#10b981", color: "white", weight: 3, fillOpacity: 0.9
-                }).addTo(mapAdmin);
-                
-                marker.bindPopup(`<b>${data.nombre}</b><br>📍 ${data.servicio}<br><small>Desde: ${data.hora}</small>`);
-                bounds.push([data.lat, data.lon]);
+        Object.keys(ult).forEach(id => {
+            const d = ult[id];
+            if (d.t === 'ENTRADA') {
+                L.circleMarker([d.lat, d.lon], {radius: 8, fillColor: "#10b981", color: "#fff", weight: 2, fillOpacity: 1}).addTo(mapAdmin)
+                .bindPopup(`<b>${d.n}</b><br>📍 ${d.s}`);
+                bounds.push([d.lat, d.lon]);
             }
         });
-
-        if (bounds.length > 0) mapAdmin.fitBounds(bounds, { padding: [50, 50] });
+        if (bounds.length > 0) mapAdmin.fitBounds(bounds, {padding: [30, 30]});
     </script>
 </body>
 </html>
